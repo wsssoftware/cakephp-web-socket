@@ -3,9 +3,10 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use JetBrains\PhpStorm\Pure;
+
 /**
  * Class Application
- *
  * Created by allancarvalho in dezembro 16, 2021
  */
 class WebSocketApplication
@@ -15,6 +16,13 @@ class WebSocketApplication
      * @var \WebSocket\Server\Server
      */
     private Server $server;
+
+    /**
+     * Holds client connected to the status application.
+     *
+     * @var Connection[] $connections
+     */
+    protected array $connections = [];
 
     /**
      * @param \WebSocket\Server\Server $server
@@ -30,13 +38,23 @@ class WebSocketApplication
     protected static WebSocketApplication $instance;
 
     /**
+     * @return \WebSocket\Server\ConsoleIoLogger
+     */
+    #[Pure]
+    public function getLogger(): ConsoleIoLogger
+    {
+        return $this->server->getLogger();
+    }
+
+    /**
      * This method is triggered when a new client connects to server/application.
      *
      * @param Connection $connection
      */
     public function onConnect(Connection $connection): void
     {
-
+        $id = $connection->getId();
+        $this->connections[$id] = $connection;
     }
 
     /**
@@ -46,18 +64,20 @@ class WebSocketApplication
      */
     public function onDisconnect(Connection $connection): void
     {
-
+        $id = $connection->getId();
+        unset($this->connections[$id]);
     }
 
     /**
      * This method is triggered when the server receive new data from a client.
      *
      * @param string $data
-     * @param Connection $client
+     * @param Connection $connection
      */
-    public function onData(string $data, Connection $client): void
+    public function onData(string $data, Connection $connection): void
     {
-
+        $this->getLogger()->info($data);
+        $connection->send(json_encode(['controller' => 'test', 'action' => 'test2', 'payload' => ['dsa', 'dsada']]));
     }
 
     /**

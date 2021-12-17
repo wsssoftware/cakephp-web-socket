@@ -11,9 +11,9 @@ namespace WebSocket\Server;
 abstract class Timer
 {
     /**
-     * @var int $interval
+     * @var int|null $interval
      */
-    private int $interval = 5000;
+    private ?int $interval = null;
 
     /**
      * @var float $lastRun
@@ -21,14 +21,35 @@ abstract class Timer
     private float $lastRun = 0;
 
     /**
-     * @param \WebSocket\Server\Server $server
+     *
      */
-    abstract public function loop(Server $server): void;
+    public function __construct()
+    {
+       $this->initialize();
+    }
 
     /**
-     * @return int
+     * method called after constructor used to set interval
      */
-    public function getInterval(): int
+    abstract public function initialize(): void;
+
+    /**
+     * @param int $interval
+     */
+    public function setInterval(int $interval): void
+    {
+        $this->interval = $interval;
+    }
+
+    /**
+     * @param \WebSocket\Server\WebSocketApplication $webSocketApplication
+     */
+    abstract public function loop(WebSocketApplication $webSocketApplication): void;
+
+    /**
+     * @return ?int
+     */
+    public function getInterval(): ?int
     {
         return $this->interval;
     }
@@ -36,10 +57,10 @@ abstract class Timer
     /**
      * Executes the timer if interval has passed.
      *
-     * @param \WebSocket\Server\Server $server
+     * @param \WebSocket\Server\WebSocketApplication $webSocketApplication
      * @return void
      */
-    public function run(Server $server): void
+    public function run(WebSocketApplication $webSocketApplication): void
     {
         $now = round(microtime(true) * 1000);
         if ($now - $this->lastRun < $this->interval) {
@@ -47,6 +68,6 @@ abstract class Timer
         }
 
         $this->lastRun = $now;
-        $this->loop($server);
+        $this->loop($webSocketApplication);
     }
 }

@@ -3,13 +3,21 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use Cake\Routing\Router;
+use WebSocket\Server\DataHandler\DataHandler;
+use WebSocket\Server\DataHandler\Hybi10DataHandler;
+use WebSocket\Utils;
+
 /**
  * Class Connection
- *
  * Created by allancarvalho in dezembro 16, 2021
  */
 class Connection
 {
+
+    /**
+     * @var bool
+     */
     public bool $waitingForData = false;
 
     /**
@@ -23,9 +31,9 @@ class Connection
     private $socket;
 
     /**
-     * @var bool $handshaked
+     * @var bool $handshakeDone
      */
-    private bool $handshaked = false;
+    private bool $handshakeDone = false;
 
     /**
      * @var string $ip
@@ -38,14 +46,39 @@ class Connection
     private int $port;
 
     /**
-     * @var string $connectionId
-     */
-    private string $connectionId;
-
-    /**
      * @var string $dataBuffer
      */
     private string $dataBuffer = '';
+
+    /**
+     * @var \WebSocket\Server\DataHandler\DataHandler
+     */
+    protected DataHandler $dataHandler;
+
+    /**
+     * @var string $id
+     */
+    private string $id;
+
+    /**
+     * @var ?string $url
+     */
+    private ?string $url = null;
+
+    /**
+     * @var array|null
+     */
+    private ?array $route = null;
+
+    /**
+     * @var ?int
+     */
+    private ?int $userId = null;
+
+    /**
+     * @var string|null
+     */
+    private ?string $sessionId = null;
 
     /**
      * @param Server $server
@@ -66,7 +99,9 @@ class Connection
         }
         $this->ip = $tmp[0];
         $this->port = (int) $tmp[1];
-        $this->connectionId = md5($this->ip . $this->port . spl_object_hash($this));
+        $this->id = md5($this->ip . $this->port . spl_object_hash($this));
+
+        $this->dataHandler = new Hybi10DataHandler($this);
 
         $this->server->getLogger()->info($this->wrapMessage('Connected'));
     }
@@ -164,8 +199,6 @@ class Connection
         } catch (\RuntimeException $e) {
             return false;
         }
-
-        $this->handshaked = true;
         $this->server->getLogger()->info($this->wrapMessage('Handshake sent'));
         $this->server->getWebSocketApplication()->onConnect($this);
 
@@ -182,23 +215,13 @@ class Connection
     public function sendHttpResponse(int $httpStatusCode = 400): void
     {
         $httpHeader = 'HTTP/1.1 ';
-        switch ($httpStatusCode) {
-            case 400:
-                $httpHeader .= '400 Bad Request';
-                break;
-            case 401:
-                $httpHeader .= '401 Unauthorized';
-                break;
-            case 403:
-                $httpHeader .= '403 Forbidden';
-                break;
-            case 404:
-                $httpHeader .= '404 Not Found';
-                break;
-            case 501:
-                $httpHeader .= '501 Not Implemented';
-                break;
-        }
+        $httpHeader .= match ($httpStatusCode) {
+            400 => '400 Bad Request',
+            401 => '401 Unauthorized',
+            403 => '403 Forbidden',
+            404 => '404 Not Found',
+            501 => '501 Not Implemented',
+        };
         $httpHeader .= "\r\n";
         try {
             $this->server->writeBuffer($this->socket, $httpHeader);
@@ -215,11 +238,11 @@ class Connection
      */
     public function onData(string $data): void
     {
-        if ($this->handshaked) {
+        if ($this->handshakeDone) {
             $this->handle($data);
-        } else {
-            $this->handshake($data);
+            return;
         }
+        $this->handshakeDone = $this->handshake($data);
     }
 
     /**
@@ -236,7 +259,7 @@ class Connection
             $this->waitingForData = false;
         }
 
-        $decodedData = $this->hybi10Decode($data);
+        $decodedData = $this->dataHandler->decode($data);
 
         if (empty($decodedData)) {
             $this->waitingForData = true;
@@ -246,7 +269,6 @@ class Connection
             $this->dataBuffer = '';
             $this->waitingForData = false;
         }
-
 
         if (!isset($decodedData['type'])) {
             $this->sendHttpResponse(401);
@@ -290,7 +312,7 @@ class Connection
     {
 
         try {
-            $encodedData = $this->hybi10Encode($payload, $type, $masked);
+            $encodedData = $this->dataHandler->encode($payload, $type, $masked);
             $this->server->writeBuffer($this->socket, $encodedData);
         } catch (\RuntimeException $e) {
             $this->server->removeClientOnError($this);
@@ -313,29 +335,15 @@ class Connection
         $payload[1] = chr(bindec($payload[1]));
         $payload = implode('', $payload);
 
-        switch ($statusCode) {
-            case 1000:
-                $payload .= 'normal closure';
-                break;
-            case 1001:
-                $payload .= 'going away';
-                break;
-            case 1002:
-                $payload .= 'protocol error';
-                break;
-            case 1003:
-                $payload .= 'unknown data (opcode)';
-                break;
-            case 1004:
-                $payload .= 'frame too large';
-                break;
-            case 1007:
-                $payload .= 'utf8 expected';
-                break;
-            case 1008:
-                $payload .= 'message violates server policy';
-                break;
-        }
+        $payload .= match ($statusCode) {
+            1000 =>  'normal closure',
+            1001 => 'going away',
+            1002 => 'protocol error',
+            1003 => 'unknown data (opcode)',
+            1004 => 'frame too large',
+            1007 => 'utf8 expected',
+            1008 => 'message violates server policy',
+        };
 
         if ($this->send($payload, 'close', false) === false) {
             return;
@@ -358,184 +366,11 @@ class Connection
     }
 
     /**
-     * Encodes a frame/message according the WebSocket protocol standard.
-     *
-     * @param string $payload
-     * @param string $type
-     * @param bool $masked
-     * @throws \RuntimeException
-     * @return string
-     */
-    private function hybi10Encode(string $payload, string $type = 'text', bool $masked = true): string
-    {
-        $frameHead = [];
-        $payloadLength = strlen($payload);
-
-        switch ($type) {
-            case 'text':
-                // first byte indicates FIN, Text-Frame (10000001):
-                $frameHead[0] = 129;
-                break;
-
-            case 'close':
-                // first byte indicates FIN, Close Frame(10001000):
-                $frameHead[0] = 136;
-                break;
-
-            case 'ping':
-                // first byte indicates FIN, Ping frame (10001001):
-                $frameHead[0] = 137;
-                break;
-
-            case 'pong':
-                // first byte indicates FIN, Pong frame (10001010):
-                $frameHead[0] = 138;
-                break;
-        }
-
-        // set mask and payload length (using 1, 3 or 9 bytes)
-        if ($payloadLength > 65535) {
-            $payloadLengthBin = str_split(sprintf('%064b', $payloadLength), 8);
-            $frameHead[1] = ($masked === true) ? 255 : 127;
-            for ($i = 0; $i < 8; $i++) {
-                $frameHead[$i + 2] = bindec($payloadLengthBin[$i]);
-            }
-            // most significant bit MUST be 0 (close connection if frame too big)
-            if ($frameHead[2] > 127) {
-                $this->close(1004);
-                throw new \RuntimeException('Invalid payload. Could not encode frame.');
-            }
-        } elseif ($payloadLength > 125) {
-            $payloadLengthBin = str_split(sprintf('%016b', $payloadLength), 8);
-            $frameHead[1] = ($masked === true) ? 254 : 126;
-            $frameHead[2] = bindec($payloadLengthBin[0]);
-            $frameHead[3] = bindec($payloadLengthBin[1]);
-        } else {
-            $frameHead[1] = ($masked === true) ? $payloadLength + 128 : $payloadLength;
-        }
-
-        // convert frame-head to string:
-        foreach (array_keys($frameHead) as $i) {
-            $frameHead[$i] = chr($frameHead[$i]);
-        }
-        if ($masked === true) {
-            // generate a random mask:
-            $mask = [];
-            for ($i = 0; $i < 4; $i++) {
-                $mask[$i] = chr(rand(0, 255));
-            }
-
-            $frameHead = array_merge($frameHead, $mask);
-        }
-        $frame = implode('', $frameHead);
-
-        // append payload to frame:
-        for ($i = 0; $i < $payloadLength; $i++) {
-            $frame .= ($masked === true) ? $payload[$i] ^ $mask[$i % 4] : $payload[$i];
-        }
-
-        return $frame;
-    }
-
-    /**
-     * Decodes a frame/message according to the WebSocket protocol standard.
-     *
-     * @param string $data
-     * @return array
-     */
-    private function hybi10Decode(string $data): array
-    {
-        $unmaskedPayload = '';
-        $decodedData = [];
-
-        // estimate frame type:
-        $firstByteBinary = sprintf('%08b', ord($data[0]));
-        $secondByteBinary = sprintf('%08b', ord($data[1]));
-        $opcode = bindec(substr($firstByteBinary, 4, 4));
-        $isMasked = $secondByteBinary[0] === '1';
-        $payloadLength = ord($data[1]) & 127;
-
-        // close connection if unmasked frame is received:
-        if ($isMasked === false) {
-            $this->close(1002);
-        }
-
-        switch ($opcode) {
-            // text frame:
-            case 1:
-                $decodedData['type'] = 'text';
-                break;
-            case 2:
-                $decodedData['type'] = 'binary';
-                break;
-            // connection close frame:
-            case 8:
-                $decodedData['type'] = 'close';
-                break;
-            // ping frame:
-            case 9:
-                $decodedData['type'] = 'ping';
-                break;
-            // pong frame:
-            case 10:
-                $decodedData['type'] = 'pong';
-                break;
-            default:
-                // Close connection on unknown opcode:
-                $this->close(1003);
-                break;
-        }
-
-        if ($payloadLength === 126) {
-            $mask = substr($data, 4, 4);
-            $payloadOffset = 8;
-            $dataLength = bindec(sprintf('%08b', ord($data[2])) . sprintf('%08b', ord($data[3]))) + $payloadOffset;
-        } elseif ($payloadLength === 127) {
-            $mask = substr($data, 10, 4);
-            $payloadOffset = 14;
-            $tmp = '';
-            for ($i = 0; $i < 8; $i++) {
-                $tmp .= sprintf('%08b', ord($data[$i + 2]));
-            }
-            $dataLength = bindec($tmp) + $payloadOffset;
-            unset($tmp);
-        } else {
-            $mask = substr($data, 2, 4);
-            $payloadOffset = 6;
-            $dataLength = $payloadLength + $payloadOffset;
-        }
-
-        /**
-         * We have to check for large frames here. socket_recv cuts at 1024 bytes
-         * so if websocket-frame is > 1024 bytes we have to wait until whole
-         * data is transferd.
-         */
-        if (strlen($data) < $dataLength) {
-            return [];
-        }
-
-        if ($isMasked === true) {
-            for ($i = $payloadOffset; $i < $dataLength; $i++) {
-                $j = $i - $payloadOffset;
-                if (isset($data[$i])) {
-                    $unmaskedPayload .= $data[$i] ^ $mask[$j % 4];
-                }
-            }
-            $decodedData['payload'] = $unmaskedPayload;
-        } else {
-            $payloadOffset = $payloadOffset - 4;
-            $decodedData['payload'] = substr($data, $payloadOffset);
-        }
-
-        return $decodedData;
-    }
-
-    /**
      * Returns IP of the connected client.
      *
      * @return string
      */
-    public function getClientIp(): string
+    public function getIp(): string
     {
         return $this->ip;
     }
@@ -545,28 +380,96 @@ class Connection
      *
      * @return int
      */
-    public function getClientPort(): int
+    public function getPort(): int
     {
         return $this->port;
     }
 
     /**
-     * Returns the unique client id.
+     * Returns the unique connection id.
      *
      * @return string
      */
-    public function getClientId(): string
+    public function getId(): string
     {
-        return $this->connectionId;
+        return $this->id;
     }
 
     /**
-     * Retuns the socket/resource of the connection.
+     * Returns the socket/resource of the connection.
      *
      * @return resource
      */
-    public function getClientSocket()
+    public function getSocket()
     {
         return $this->socket;
+    }/**
+ * @return string|null
+ */
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    /**
+     * @return array|null
+     */
+    public function getRoute(): ?array
+    {
+        return $this->route;
+    }
+
+    /**
+     * @param bool $ignorePass
+     * @param bool $ignoreQuery
+     * @return string
+     */
+    public function getRouteMd5(bool $ignorePass = true, bool $ignoreQuery = true): string
+    {
+        return Utils::urlToMd5($this->route, $ignorePass, $ignoreQuery);
+    }
+
+    /**
+     * @param array $route
+     */
+    public function setRoute(array $route): void
+    {
+        $this->url = Router::url($route);
+        if (empty($route['prefix'])) {
+            $route['prefix'] = false;
+        }
+        $this->route = $route;
+    }
+
+    /**
+     * @return int|null
+     */
+    public function getUserId(): ?int
+    {
+        return $this->userId;
+    }
+
+    /**
+     * @param int|null $userId
+     */
+    public function setUserId(?int $userId): void
+    {
+        $this->userId = $userId;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getSessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    /**
+     * @param string|null $sessionId
+     */
+    public function setSessionId(?string $sessionId): void
+    {
+        $this->sessionId = $sessionId;
     }
 }

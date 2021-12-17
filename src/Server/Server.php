@@ -5,6 +5,7 @@ namespace WebSocket\Server;
 
 use Cake\Console\ConsoleIo;
 use Cake\I18n\Number;
+use InvalidArgumentException;
 use JetBrains\PhpStorm\Pure;
 use WebSocket\ConfigurationReader;
 
@@ -151,7 +152,11 @@ class Server
             foreach ($timers as $timer) {
                 /** @var \WebSocket\Server\Timer $timer */
                 $timer = new $timer();
-                $resultLabel = sprintf('REGISTERING TIMER "%s" with interval %s', $timer::class, Number::format($timer->getInterval()));
+                $interval = $timer->getInterval();
+                if (empty($interval)) {
+                    throw new InvalidArgumentException(sprintf('Timer "%s" does not have a interval defined.', $timer::class));
+                }
+                $resultLabel = sprintf('REGISTERING TIMER "%s" with interval %s', $timer::class, Number::format($interval));
                 $size = 98 - strlen($resultLabel);
                 $beforeSpace = (int)ceil($size / 2);
                 $afterSpace = (int)floor($size / 2);
@@ -219,7 +224,7 @@ class Server
 
         $this->configureTimers();
         while (true) {
-            $this->timers->runAll($this);
+            $this->timers->runAll($this->webSocketApplication);
 
             $changed_sockets = $this->sockets;
             @stream_select($changed_sockets, $write, $except, 0, 5000);
@@ -237,8 +242,8 @@ class Server
                             continue;
                         }
 
-                        $this->addIpToStorage($connection->getClientIp());
-                        if ($this->checkMaxConnectionsPerIp($connection->getClientIp()) === false) {
+                        $this->addIpToStorage($connection->getIp());
+                        if ($this->checkMaxConnectionsPerIp($connection->getIp()) === false) {
                             $connection->onDisconnect();
                         }
                     }
@@ -278,9 +283,9 @@ class Server
      */
     public function removeClientOnClose(Connection $client): void
     {
-        $clientIp = $client->getClientIp();
-        $clientPort = $client->getClientPort();
-        $resource = $client->getClientSocket();
+        $clientIp = $client->getIp();
+        $clientPort = $client->getPort();
+        $resource = $client->getSocket();
 
         $this->removeIpFromStorage($clientIp);
         unset($this->clients[(int) $resource]);

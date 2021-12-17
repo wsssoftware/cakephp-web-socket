@@ -33,12 +33,12 @@ class TimerCollection
     /**
      * Executes/runs all timers.
      *
-     * @param \WebSocket\Server\Server $server
+     * @param \WebSocket\Server\WebSocketApplication $webSocketApplication
      */
-    public function runAll(Server $server): void
+    public function runAll(WebSocketApplication $webSocketApplication): void
     {
         foreach ($this->timers as $timer) {
-            $timer->run($server);
+            $timer->run($webSocketApplication);
         }
     }
 }
