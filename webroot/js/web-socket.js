@@ -28,7 +28,7 @@ let CakePHPWebSocket = {
             callable(e.detail.payload);
         });
     },
-    sendMessage: function (controller, action, payload) {
+    sendMessage: function (controller, action, payload, plugin = false) {
         if (this.socket === null) {
             console.error('CakeWebSocket is not connected')
             return;
@@ -36,6 +36,7 @@ let CakePHPWebSocket = {
 
         if (this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({
+                'plugin': plugin,
                 'controller': controller,
                 'action': action,
                 'payload': payload,

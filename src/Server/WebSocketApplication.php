@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace WebSocket\Server;
 
 use Cake\I18n\FrozenTime;
+use Cake\Utility\Hash;
 use Cake\Utility\Security;
 use JetBrains\PhpStorm\Pure;
+use WebSocket\WebSocketController\WebSocketControllerFactory;
 
 /**
  * Class Application
@@ -33,6 +35,11 @@ class WebSocketApplication
     {
         $this->server = $server;
     }
+
+    /**
+     * @var bool
+     */
+    protected bool $wasIdentified = false;
 
     /**
      * @var \WebSocket\Server\WebSocketApplication
@@ -73,15 +80,32 @@ class WebSocketApplication
      *
      * @param string $data
      * @param Connection $connection
+     * @throws \ReflectionException
      */
     public function onData(string $data, Connection $connection): void
     {
         $data = $connection->decodeData($data);
         if (!empty($data['initialPayload'])) {
             $this->processInitialPayload($data, $connection);
+            return;
         }
-        $this->getLogger()->info('dsdsa');
-        $connection->send(json_encode(['controller' => 'test', 'action' => 'test2', 'payload' => ['dsa', 'dsada']]));
+        if ($this->wasIdentified === false) {
+            $this->getLogger()->wrapConnection($connection)->warning('User trying to interact with server before identify. Disconnecting!');
+            $connection->close(1008);
+            return;
+        }
+        $plugin = Hash::get($data, 'plugin');
+        $controller = Hash::get($data, 'controller');
+        $action = Hash::get($data, 'action');
+        $payload = Hash::get($data, 'payload');
+        if ($plugin === null || $controller === null || $action === null || $payload === null) {
+            $this->getLogger()->wrapConnection($connection)->warning('Ignoring message of connect due wrong format.');
+            return;
+        }
+        $resultPayload = WebSocketControllerFactory::getInstance()->invoke($this->server, $this->getLogger(), $plugin, $controller, $action, $payload);
+        if (is_array($resultPayload)) {
+            $connection->sendPayload($controller, $action, $resultPayload);
+        }
     }
 
     /**
@@ -100,24 +124,27 @@ class WebSocketApplication
      */
     protected function processInitialPayload(array $data, Connection $connection): void
     {
+        $this->getLogger()->wrapConnection($connection)->info('Trying to set a identity for this connection...');
         $payload = urldecode($data['initialPayload']);
         $payload = Security::decrypt($payload, Security::getSalt());
         if ($payload === null) {
-            $this->getLogger()->warning('Wrong/missing identify payload intent. Performing disconnect...');
+            $this->getLogger()->wrapConnection($connection)->warning('Wrong/missing identify payload intent. Performing disconnect...');
             $connection->close(1008);
         }
         $payload = json_decode($payload, true);
         if (empty($payload['sessionId']) || empty($payload['userId']) || empty($payload['routeMd5']) || empty($payload['expires'])) {
-            $this->getLogger()->warning('Missing data identify payload intent. Performing disconnect...');
+            $this->getLogger()->wrapConnection($connection)->warning('Missing data identify payload intent. Performing disconnect...');
             $connection->close(1008);
         }
         $expires = FrozenTime::parse($payload['expires']);
         if ($expires->isPast()) {
-            $this->getLogger()->warning('Identify payload intent is expired. Performing disconnect...');
+            $this->getLogger()->wrapConnection($connection)->warning('Identify payload intent is expired. Performing disconnect...');
             $connection->close(1008);
         }
         $connection->setSessionId($payload['sessionId']);
         $connection->setUserId($payload['userId']);
         $connection->setRouteMd5($payload['routeMd5']);
+        $this->wasIdentified = true;
+        $this->getLogger()->wrapConnection($connection)->info('Identity setted for this connection!');
     }
 }

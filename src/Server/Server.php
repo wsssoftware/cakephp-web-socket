@@ -140,7 +140,7 @@ class Server
 
             foreach ($timers as $timer) {
                 /** @var \WebSocket\Server\Timer $timer */
-                $timer = new $timer();
+                $timer = new $timer($this->logger);
                 $interval = $timer->getInterval();
                 if (empty($interval)) {
                     throw new InvalidArgumentException(sprintf('Timer "%s" does not have a interval defined.', $timer::class));

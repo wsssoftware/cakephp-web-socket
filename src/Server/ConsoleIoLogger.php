@@ -1,5 +1,6 @@
 <?php
-declare(strict_types=1);
+
+declare(strict_types = 1);
 
 namespace WebSocket\Server;
 
@@ -14,6 +15,11 @@ use RuntimeException;
  */
 class ConsoleIoLogger extends AbstractLogger
 {
+
+    /**
+     * @var string|null
+     */
+    protected ?string $wrap = null;
 
     /**
      * @var \Cake\Console\ConsoleIo
@@ -60,12 +66,33 @@ class ConsoleIoLogger extends AbstractLogger
     }
 
     /**
+     * @param \WebSocket\Server\Connection $connection
+     * @return $this
+     */
+    public function wrapConnection(Connection $connection): self
+    {
+        $this->wrap = sprintf(
+            '[client %s:%s] %s',
+            $connection->getIp(),
+            $connection->getPort(),
+            '%s'
+        );
+
+        return $this;
+    }
+
+    /**
      * @param mixed $level
      * @param string $message
      * @param array $context
      */
     public function log($level, $message, array $context = [])
     {
+        if ($this->wrap !== null) {
+            $message = sprintf($this->wrap, $message);
+            $this->wrap = null;
+        }
+
         if ($this->messagePrefix) {
             $message = sprintf(
                 "%s [%s] %s",
@@ -82,6 +109,5 @@ class ConsoleIoLogger extends AbstractLogger
             'debug' => $this->io->out($message),
             default => throw new RuntimeException(sprintf('"%s" is not in valid log level list', $level))
         };
-
     }
 }

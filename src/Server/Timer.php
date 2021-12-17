@@ -21,10 +21,16 @@ abstract class Timer
     private float $lastRun = 0;
 
     /**
+     * @var \WebSocket\Server\ConsoleIoLogger
+     */
+    private ConsoleIoLogger $logger;
+
+    /**
      *
      */
-    public function __construct()
+    public function __construct(ConsoleIoLogger $logger)
     {
+       $this->logger = $logger;
        $this->initialize();
     }
 

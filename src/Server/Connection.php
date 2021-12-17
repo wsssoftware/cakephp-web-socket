@@ -96,7 +96,7 @@ class Connection
 
         $this->dataHandler = new Hybi10DataHandler($this);
 
-        $this->server->getLogger()->info($this->wrapMessage('Connected'));
+        $this->server->getLogger()->wrapConnection($this)->info('Connected');
     }
 
 
@@ -129,20 +129,6 @@ class Connection
     }
 
     /**
-     * @param string $message
-     * @return string
-     */
-    protected function wrapMessage(string $message): string
-    {
-        return sprintf(
-            '[client %s:%s] %s',
-            $this->ip,
-            $this->port,
-            $message
-        );
-    }
-
-    /**
      * Handles the client-server handshake.
      *
      * @param string $data
@@ -151,12 +137,12 @@ class Connection
      */
     private function handshake(string $data): bool
     {
-        $this->server->getLogger()->info($this->wrapMessage('Performing handshake'));
+        $this->server->getLogger()->wrapConnection($this)->info('Performing handshake');
         $lines = preg_split("/\r\n/", $data);
 
         // check for valid http-header:
         if (!preg_match('/\AGET (\S+) HTTP\/1.1\z/', $lines[0], $matches)) {
-            $this->server->getLogger()->error($this->wrapMessage('Invalid request: ' . $lines[0]));
+            $this->server->getLogger()->wrapConnection($this)->error('Invalid request: ' . $lines[0]);
             $this->sendHttpResponse();
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
             return false;
@@ -177,7 +163,7 @@ class Connection
 
         // check for supported websocket version:
         if (!isset($headers['sec-websocket-version']) || $headers['sec-websocket-version'] < 6) {
-            $this->server->getLogger()->error($this->wrapMessage('Unsupported websocket version.'));
+            $this->server->getLogger()->wrapConnection($this)->error('Unsupported websocket version.');
             $this->sendHttpResponse(501);
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
             $this->server->removeConnection($this);
@@ -189,7 +175,7 @@ class Connection
             $origin = (isset($headers['sec-websocket-origin'])) ? $headers['sec-websocket-origin'] : '';
             $origin = (isset($headers['origin'])) ? $headers['origin'] : $origin;
             if (empty($origin)) {
-                $this->server->getLogger()->error($this->wrapMessage('No origin provided.'));
+                $this->server->getLogger()->wrapConnection($this)->error('No origin provided.');
                 $this->sendHttpResponse(401);
                 stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
                 $this->server->removeConnection($this);
@@ -197,7 +183,7 @@ class Connection
             }
 
             if ($this->server->checkOrigin($origin) === false) {
-                $this->server->getLogger()->error($this->wrapMessage('Invalid origin provided.'));
+                $this->server->getLogger()->wrapConnection($this)->error('Invalid origin provided.');
                 $this->sendHttpResponse(401);
                 stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
                 $this->server->removeConnection($this);
@@ -222,7 +208,7 @@ class Connection
             $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
             return false;
         }
-        $this->server->getLogger()->info($this->wrapMessage('Handshake sent'));
+        $this->server->getLogger()->wrapConnection($this)->info('Handshake sent');
         $this->server->getWebSocketApplication()->onConnect($this);
 
         return true;
@@ -309,14 +295,14 @@ class Connection
                 break;
             case 'ping':
                 $this->send($decodedData['payload'], 'pong');
-                $this->server->getLogger()->info($this->wrapMessage('Ping? Pong!'));
+                $this->server->getLogger()->wrapConnection($this)->info('Ping? Pong!');
                 break;
             case 'pong':
                 // server currently not sending pings, so no pong should be received.
                 break;
             case 'close':
                 $this->close();
-                $this->server->getLogger()->info($this->wrapMessage('Disconnected'));
+                $this->server->getLogger()->wrapConnection($this)->info('Disconnected');
                 break;
         }
     }
@@ -382,7 +368,7 @@ class Connection
      */
     public function onDisconnect(): void
     {
-        $this->server->getLogger()->info($this->wrapMessage('Disconnected'));
+        $this->server->getLogger()->wrapConnection($this)->info('Disconnected');
         $this->close();
     }
 
