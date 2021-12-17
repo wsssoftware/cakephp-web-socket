@@ -2,7 +2,7 @@
 let CakePHPWebSocket = {
     socket: null,
     debug: false,
-    connect: function (address, sessionId, route, debug = false) {
+    connect: function (address, initialPayload, debug = false) {
         let parent = this;
         let serverUrl = address;
         this.debug = debug;
@@ -15,7 +15,7 @@ let CakePHPWebSocket = {
             }, 60000);
         }
 
-        this.socket.onopen = this.onOpen(sessionId, route);
+        this.socket.onopen = this.onOpen(initialPayload);
         this.socket.onmessage = this.onMessage();
         this.socket.onerror = this.onError();
         this.socket.onclose = this.onClose();
@@ -94,18 +94,14 @@ let CakePHPWebSocket = {
                 return  "Unknown reason";
         }
     },
-    onOpen: function (sessionId, route) {
+    onOpen: function (initialPayload) {
         let parent = this;
         return function () {
             if (parent.debug) {
                 console.log('CakeWebSocket: Connection is now OPEN!');
             }
             parent.socket.send(JSON.stringify({
-                action: 'registerConnection',
-                data: {
-                    sessionId: sessionId,
-                    route: route,
-                }
+                initialPayload: initialPayload,
             }));
         }
     },

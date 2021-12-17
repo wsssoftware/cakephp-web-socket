@@ -21,11 +21,42 @@ class ConsoleIoLogger extends AbstractLogger
     protected ConsoleIo $io;
 
     /**
+     * @var bool
+     */
+    protected bool $messagePrefix = true;
+
+    /**
      *
      */
     public function __construct(ConsoleIo $io)
     {
         $this->io = $io;
+    }
+
+    /**
+     * @return void
+     */
+    public function disableMessagePrefix(): void
+    {
+        $this->messagePrefix = false;
+    }
+
+    /**
+     * @return void
+     */
+    public function enableMessagePrefix(): void
+    {
+        $this->messagePrefix = true;
+    }
+
+    /**
+     * @param int $amount
+     */
+    public function lineBreak(int $amount = 1): void
+    {
+        for ($i = 1; $i <= $amount; $i++) {
+            $this->io->out();
+        }
     }
 
     /**
@@ -35,12 +66,14 @@ class ConsoleIoLogger extends AbstractLogger
      */
     public function log($level, $message, array $context = [])
     {
-        $message = sprintf(
-            "%s [%s] %s",
-            FrozenTime::now()->format('Y-m-d H:i:s'),
-            strtoupper($level),
-            $message
-        );
+        if ($this->messagePrefix) {
+            $message = sprintf(
+                "%s [%s] %s",
+                FrozenTime::now()->format('Y-m-d H:i:s'),
+                strtoupper($level),
+                $message
+            );
+        }
 
         match ($level) {
             'emergency', 'warning', 'critical', 'alert' => $this->io->warning($message),

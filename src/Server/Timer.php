@@ -42,9 +42,9 @@ abstract class Timer
     }
 
     /**
-     * @param \WebSocket\Server\WebSocketApplication $webSocketApplication
+     * @param \WebSocket\Server\Connection[] $connections
      */
-    abstract public function loop(WebSocketApplication $webSocketApplication): void;
+    abstract public function loop(array $connections): void;
 
     /**
      * @return ?int
@@ -57,10 +57,10 @@ abstract class Timer
     /**
      * Executes the timer if interval has passed.
      *
-     * @param \WebSocket\Server\WebSocketApplication $webSocketApplication
+     * @param \WebSocket\Server\Connection[] $connections
      * @return void
      */
-    public function run(WebSocketApplication $webSocketApplication): void
+    public function run(array $connections): void
     {
         $now = round(microtime(true) * 1000);
         if ($now - $this->lastRun < $this->interval) {
@@ -68,6 +68,6 @@ abstract class Timer
         }
 
         $this->lastRun = $now;
-        $this->loop($webSocketApplication);
+        $this->loop($connections);
     }
 }

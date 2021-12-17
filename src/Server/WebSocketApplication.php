@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use Cake\I18n\FrozenTime;
+use Cake\Utility\Security;
 use JetBrains\PhpStorm\Pure;
 
 /**
@@ -53,8 +55,7 @@ class WebSocketApplication
      */
     public function onConnect(Connection $connection): void
     {
-        $id = $connection->getId();
-        $this->connections[$id] = $connection;
+
     }
 
     /**
@@ -64,8 +65,7 @@ class WebSocketApplication
      */
     public function onDisconnect(Connection $connection): void
     {
-        $id = $connection->getId();
-        unset($this->connections[$id]);
+
     }
 
     /**
@@ -76,7 +76,11 @@ class WebSocketApplication
      */
     public function onData(string $data, Connection $connection): void
     {
-        $this->getLogger()->info($data);
+        $data = $connection->decodeData($data);
+        if (!empty($data['initialPayload'])) {
+            $this->processInitialPayload($data, $connection);
+        }
+        $this->getLogger()->info('dsdsa');
         $connection->send(json_encode(['controller' => 'test', 'action' => 'test2', 'payload' => ['dsa', 'dsada']]));
     }
 
@@ -88,5 +92,32 @@ class WebSocketApplication
     public function onIPCData(array $data): void
     {
 
+    }
+
+    /**
+     * @param array $data
+     * @param \WebSocket\Server\Connection $connection
+     */
+    protected function processInitialPayload(array $data, Connection $connection): void
+    {
+        $payload = urldecode($data['initialPayload']);
+        $payload = Security::decrypt($payload, Security::getSalt());
+        if ($payload === null) {
+            $this->getLogger()->warning('Wrong/missing identify payload intent. Performing disconnect...');
+            $connection->close(1008);
+        }
+        $payload = json_decode($payload, true);
+        if (empty($payload['sessionId']) || empty($payload['userId']) || empty($payload['routeMd5']) || empty($payload['expires'])) {
+            $this->getLogger()->warning('Missing data identify payload intent. Performing disconnect...');
+            $connection->close(1008);
+        }
+        $expires = FrozenTime::parse($payload['expires']);
+        if ($expires->isPast()) {
+            $this->getLogger()->warning('Identify payload intent is expired. Performing disconnect...');
+            $connection->close(1008);
+        }
+        $connection->setSessionId($payload['sessionId']);
+        $connection->setUserId($payload['userId']);
+        $connection->setRouteMd5($payload['routeMd5']);
     }
 }

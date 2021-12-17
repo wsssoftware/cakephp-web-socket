@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
-use Cake\Routing\Router;
+use RuntimeException;
 use WebSocket\Server\DataHandler\DataHandler;
 use WebSocket\Server\DataHandler\Hybi10DataHandler;
-use WebSocket\Utils;
 
 /**
  * Class Connection
@@ -59,16 +58,10 @@ class Connection
      * @var string $id
      */
     private string $id;
-
     /**
-     * @var ?string $url
+     * @var string|null
      */
-    private ?string $url = null;
-
-    /**
-     * @var array|null
-     */
-    private ?array $route = null;
+    private ?string $routeMd5 = null;
 
     /**
      * @var ?int
@@ -106,6 +99,35 @@ class Connection
         $this->server->getLogger()->info($this->wrapMessage('Connected'));
     }
 
+
+    /**
+     * Decodes json payload received from stream.
+     *
+     * @param string $data
+     * @return array
+     *@throws \RuntimeException
+     */
+    public function decodeData(string $data): array
+    {
+        $decodedPayload = json_decode($data, true);
+        if (empty($decodedPayload)) {
+            throw new RuntimeException('Could not decode payload.');
+        }
+
+        return $decodedPayload;
+    }
+
+    /**
+     * Encodes payload to be sent to client.
+     *
+     * @param array $data
+     * @return string
+     */
+    public function encodeData(array $data): string
+    {
+        return json_encode($data);
+    }
+
     /**
      * @param string $message
      * @return string
@@ -135,14 +157,14 @@ class Connection
         // check for valid http-header:
         if (!preg_match('/\AGET (\S+) HTTP\/1.1\z/', $lines[0], $matches)) {
             $this->server->getLogger()->error($this->wrapMessage('Invalid request: ' . $lines[0]));
-            $this->sendHttpResponse(400);
+            $this->sendHttpResponse();
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
             return false;
         }
 
         // check for valid application:
         $path = $matches[1];
-        $applicationKey = substr($path, 1);
+        //$applicationKey = substr($path, 1);
 
         // generate headers array:
         $headers = [];
@@ -158,7 +180,7 @@ class Connection
             $this->server->getLogger()->error($this->wrapMessage('Unsupported websocket version.'));
             $this->sendHttpResponse(501);
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-            $this->server->removeClientOnError($this);
+            $this->server->removeConnection($this);
             return false;
         }
 
@@ -170,7 +192,7 @@ class Connection
                 $this->server->getLogger()->error($this->wrapMessage('No origin provided.'));
                 $this->sendHttpResponse(401);
                 stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-                $this->server->removeClientOnError($this);
+                $this->server->removeConnection($this);
                 return false;
             }
 
@@ -178,12 +200,12 @@ class Connection
                 $this->server->getLogger()->error($this->wrapMessage('Invalid origin provided.'));
                 $this->sendHttpResponse(401);
                 stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-                $this->server->removeClientOnError($this);
+                $this->server->removeConnection($this);
                 return false;
             }
         }
 
-        // do handyshake: (hybi-10)
+        // do handshake: (hybi-10)
         $secKey = $headers['sec-websocket-key'];
         $secAccept = base64_encode(pack('H*', sha1($secKey . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
         $response = "HTTP/1.1 101 Switching Protocols\r\n";
@@ -195,8 +217,9 @@ class Connection
         }
         $response .= "\r\n";
         try {
-            $this->server->writeBuffer($this->socket, $response);
-        } catch (\RuntimeException $e) {
+            Buffer::write($this->socket, $response);
+        } catch (RuntimeException $e) {
+            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
             return false;
         }
         $this->server->getLogger()->info($this->wrapMessage('Handshake sent'));
@@ -206,7 +229,7 @@ class Connection
     }
 
     /**
-     * Sends an http response to client.
+     * Sends a http response to client.
      *
      * @param int $httpStatusCode
      * @throws \RuntimeException
@@ -224,9 +247,10 @@ class Connection
         };
         $httpHeader .= "\r\n";
         try {
-            $this->server->writeBuffer($this->socket, $httpHeader);
-        } catch (\RuntimeException $e) {
-            // @todo Handle write to socket error
+            Buffer::write($this->socket, $httpHeader);
+        } catch (RuntimeException $e) {
+            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
+            // TODO Handle write to socket error
         }
     }
 
@@ -249,9 +273,8 @@ class Connection
      * Decodes incoming data and executes the requested action.
      *
      * @param string $data
-     * @return bool
      */
-    private function handle(string $data): bool
+    private function handle(string $data): void
     {
         if ($this->waitingForData === true) {
             $data = $this->dataBuffer . $data;
@@ -264,7 +287,7 @@ class Connection
         if (empty($decodedData)) {
             $this->waitingForData = true;
             $this->dataBuffer .= $data;
-            return false;
+            return;
         } else {
             $this->dataBuffer = '';
             $this->waitingForData = false;
@@ -273,8 +296,8 @@ class Connection
         if (!isset($decodedData['type'])) {
             $this->sendHttpResponse(401);
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-            $this->server->removeClientOnError($this);
-            return false;
+            $this->server->removeConnection($this);
+            return;
         }
 
         switch ($decodedData['type']) {
@@ -285,7 +308,7 @@ class Connection
                 $this->close(1003);
                 break;
             case 'ping':
-                $this->send($decodedData['payload'], 'pong', false);
+                $this->send($decodedData['payload'], 'pong');
                 $this->server->getLogger()->info($this->wrapMessage('Ping? Pong!'));
                 break;
             case 'pong':
@@ -296,8 +319,6 @@ class Connection
                 $this->server->getLogger()->info($this->wrapMessage('Disconnected'));
                 break;
         }
-
-        return true;
     }
 
     /**
@@ -313,9 +334,10 @@ class Connection
 
         try {
             $encodedData = $this->dataHandler->encode($payload, $type, $masked);
-            $this->server->writeBuffer($this->socket, $encodedData);
-        } catch (\RuntimeException $e) {
-            $this->server->removeClientOnError($this);
+            Buffer::write($this->socket, $encodedData);
+        } catch (RuntimeException $e) {
+            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
+            $this->server->removeConnection($this);
             return false;
         }
 
@@ -345,12 +367,11 @@ class Connection
             1008 => 'message violates server policy',
         };
 
-        if ($this->send($payload, 'close', false) === false) {
+        if ($this->send($payload, 'close') === false) {
             return;
         }
-
         stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-        $this->server->removeClientOnClose($this);
+        $this->server->removeConnection($this);
     }
 
 
@@ -362,7 +383,7 @@ class Connection
     public function onDisconnect(): void
     {
         $this->server->getLogger()->info($this->wrapMessage('Disconnected'));
-        $this->close(1000);
+        $this->close();
     }
 
     /**
@@ -385,6 +406,16 @@ class Connection
         return $this->port;
     }
 
+    public function sendPayload(string $controller, string $action, array $payload): void
+    {
+        $data = [
+            'controller' => $controller,
+            'action' => $action,
+            'payload' => $payload,
+        ];
+        $this->send($this->encodeData($data));
+    }
+
     /**
      * Returns the unique connection id.
      *
@@ -403,42 +434,22 @@ class Connection
     public function getSocket()
     {
         return $this->socket;
-    }/**
- * @return string|null
- */
-    public function getUrl(): ?string
-    {
-        return $this->url;
     }
 
     /**
      * @return array|null
      */
-    public function getRoute(): ?array
+    public function getRouteMd5(): ?string
     {
-        return $this->route;
+        return $this->routeMd5;
     }
 
     /**
-     * @param bool $ignorePass
-     * @param bool $ignoreQuery
-     * @return string
+     * @param string|null $routeMd5
      */
-    public function getRouteMd5(bool $ignorePass = true, bool $ignoreQuery = true): string
+    public function setRouteMd5(?string $routeMd5): void
     {
-        return Utils::urlToMd5($this->route, $ignorePass, $ignoreQuery);
-    }
-
-    /**
-     * @param array $route
-     */
-    public function setRoute(array $route): void
-    {
-        $this->url = Router::url($route);
-        if (empty($route['prefix'])) {
-            $route['prefix'] = false;
-        }
-        $this->route = $route;
+        $this->routeMd5 = $routeMd5;
     }
 
     /**

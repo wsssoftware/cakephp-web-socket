@@ -3,9 +3,10 @@ declare(strict_types=1);
 
 namespace WebSocket\Server\DataHandler;
 
+use RuntimeException;
+
 /**
  * Class Hybi10DataHandler
- *
  * Created by allancarvalho in dezembro 16, 2021
  */
 class Hybi10DataHandler extends DataHandler
@@ -36,7 +37,7 @@ class Hybi10DataHandler extends DataHandler
             // most significant bit MUST be 0 (close connection if frame too big)
             if ($frameHead[2] > 127) {
                 $this->connection->close(1004);
-                throw new \RuntimeException('Invalid payload. Could not encode frame.');
+                throw new RuntimeException('Invalid payload. Could not encode frame.');
             }
         } elseif ($payloadLength > 125) {
             $payloadLengthBin = str_split(sprintf('%016b', $payloadLength), 8);

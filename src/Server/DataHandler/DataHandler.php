@@ -21,34 +21,6 @@ abstract class DataHandler
     }
 
     /**
-     * Decodes json payload received from stream.
-     *
-     * @param string $payload
-     * @throws \RuntimeException
-     * @return array
-     */
-    public function decodePayload(string $payload): array
-    {
-        $decodedPayload = json_decode($payload, true);
-        if (empty($decodedPayload)) {
-            throw new \RuntimeException('Could not decode payload.');
-        }
-
-        return $decodedPayload;
-    }
-
-    /**
-     * Encodes payload to be sent to client.
-     *
-     * @param array $payload
-     * @return string
-     */
-    public function encodePayload(array $payload): string
-    {
-        return json_encode($payload);
-    }
-
-    /**
      * Encode a payload data to string
      *
      * @param string $payload

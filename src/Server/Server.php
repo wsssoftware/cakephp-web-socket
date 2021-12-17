@@ -7,6 +7,7 @@ use Cake\Console\ConsoleIo;
 use Cake\I18n\Number;
 use InvalidArgumentException;
 use JetBrains\PhpStorm\Pure;
+use RuntimeException;
 use WebSocket\ConfigurationReader;
 
 /**
@@ -32,39 +33,18 @@ class Server
     private $icpSocket;
 
     /**
-     *  If set, owner of the ipc socket will be changed to this value.
-     *
-     * @var string $ipcOwner
-     */
-    private string $ipcOwner = '';
-
-    /**
-     *  If set, group of the ipc socket will be changed to this value.
-     *
-     * @var string $ipcGroup
-     */
-    private string $ipcGroup = '';
-
-    /**
-     *  If set, chmod of the ipc socket will be changed to this value.
-     *
-     * @var int $ipcMode
-     */
-    private int $ipcMode = 0;
-
-    /**
      *  Holds all connected sockets
      *
-     * @var array
+     * @var resource[]
      */
     protected array $sockets = [];
 
     /**
      *  Holds the master socket
      *
-     * @var resource $master
+     * @var resource $masterConnection
      */
-    protected $master;
+    protected $masterConnection;
 
     /**
      * @var resource $context
@@ -72,9 +52,9 @@ class Server
     protected $context = null;
 
     /**
-     * @var array $clients
+     * @var \WebSocket\Server\Connection[] $connections
      */
-    protected array $clients = [];
+    protected array $connections = [];
 
     /**
      * @var array $ipStorage
@@ -119,6 +99,14 @@ class Server
     }
 
     /**
+     * @return \WebSocket\Server\Connection[]
+     */
+    public function getConnections(): array
+    {
+        return $this->connections;
+    }
+
+    /**
      * @return \WebSocket\Server\WebSocketApplication
      */
     public function getWebSocketApplication(): WebSocketApplication
@@ -139,6 +127,7 @@ class Server
      */
     protected function configureTimers(): void
     {
+        $this->logger->disableMessagePrefix();
         $timers = $this->configuration->getTimers();
         $registryLabel = 'REGISTERING TIMERS';
         $size = 98 - strlen($registryLabel);
@@ -156,7 +145,7 @@ class Server
                 if (empty($interval)) {
                     throw new InvalidArgumentException(sprintf('Timer "%s" does not have a interval defined.', $timer::class));
                 }
-                $resultLabel = sprintf('REGISTERING TIMER "%s" with interval %s', $timer::class, Number::format($interval));
+                $resultLabel = sprintf('REGISTERING TIMER "%s" with interval %sms', $timer::class, Number::format($interval));
                 $size = 98 - strlen($resultLabel);
                 $beforeSpace = (int)ceil($size / 2);
                 $afterSpace = (int)floor($size / 2);
@@ -174,9 +163,9 @@ class Server
 
 
         $this->logger->info('╚══════════════════════════════════════════════════════════════════════════════════════════════════╝');
-        $this->logger->info('');
+        $this->logger->lineBreak();
 
-
+        $this->logger->enableMessagePrefix();
     }
 
     /**
@@ -193,6 +182,7 @@ class Server
             sprintf('CHECK ORIGINS: %s', $this->configuration->isCheckOrigin() ? 'YES' : 'NO'),
         ];
 
+        $this->logger->disableMessagePrefix();
         $this->logger->info('╔══════════════════════════════════════════════════════════════════════════════════════════════════╗');
         $this->logger->info('║                         WELCOME TO CAKEPHP WEBSOCKET! SERVER WAS CREATED!                        ║');
         $this->logger->info('╠══════════════════════════════════════════════════════════════════════════════════════════════════╣');
@@ -205,7 +195,8 @@ class Server
             $this->logger->info('║' . str_repeat(' ', $beforeSpace) . $info . str_repeat(' ', $afterSpace) . '║');
         }
         $this->logger->info('╚══════════════════════════════════════════════════════════════════════════════════════════════════╝');
-        $this->logger->info('');
+        $this->logger->lineBreak();
+        $this->logger->enableMessagePrefix();
     }
 
     /**
@@ -224,20 +215,20 @@ class Server
 
         $this->configureTimers();
         while (true) {
-            $this->timers->runAll($this->webSocketApplication);
+            $this->timers->runAll($this->getConnections());
 
             $changed_sockets = $this->sockets;
             @stream_select($changed_sockets, $write, $except, 0, 5000);
             foreach ($changed_sockets as $socket) {
-                if ($socket == $this->master) {
-                    if (($resource = stream_socket_accept($this->master)) === false) {
+                if ($socket === $this->masterConnection) {
+                    if (($resource = stream_socket_accept($this->masterConnection)) === false) {
                         $this->logger->error('Socket error: ' . socket_strerror(socket_last_error($resource)));
                     } else {
                         $connection = $this->createConnection($resource);
-                        $this->clients[(int)$resource] = $connection;
+                        $this->connections[(int)$resource] = $connection;
                         $this->sockets[] = $resource;
 
-                        if (count($this->clients) > $this->configuration->getMaxClients()) {
+                        if (count($this->connections) > $this->configuration->getMaxClients()) {
                             $connection->onDisconnect();
                             continue;
                         }
@@ -248,17 +239,17 @@ class Server
                         }
                     }
                 } else {
-                    /** @var Connection $connection */
-                    $connection = $this->clients[(int)$socket];
+                    $connection = $this->connections[(int)$socket];
                     if (!is_object($connection)) {
-                        unset($this->clients[(int)$socket]);
+                        unset($this->connections[(int)$socket]);
                         continue;
                     }
 
                     try {
-                        $data = $this->readBuffer($socket);
-                    } catch (\RuntimeException $e) {
-                        $this->removeClientOnError($connection);
+                        $data = Buffer::read($socket);
+                    } catch (RuntimeException $e) {
+                        $this->logger->error(sprintf('Error while reading the buffer of message. Error message: %s', $e->getMessage()));
+                        $this->removeConnection($connection);
                         continue;
                     }
                     $bytes = strlen($data);
@@ -278,32 +269,23 @@ class Server
     /**
      * Removes a client from client storage.
      *
-     * @param Connection $client
+     * @param Connection $connection
      * @return void
      */
-    public function removeClientOnClose(Connection $client): void
+    public function removeConnection(Connection $connection): void
     {
-        $clientIp = $client->getIp();
-        $clientPort = $client->getPort();
-        $resource = $client->getSocket();
-
+        $clientIp = $connection->getIp();
+        $clientPort = $connection->getPort();
+        $resource = $connection->getSocket();
         $this->removeIpFromStorage($clientIp);
-        unset($this->clients[(int) $resource]);
+        unset($this->connections[(int) $resource]);
         $index = array_search($resource, $this->sockets);
-        unset($this->sockets[$index], $client);
+        if ($index === false) {
+            return;
+        }
 
+        unset($this->sockets[$index], $connection);
         unset($clientIp, $clientPort, $resource);
-    }
-
-    /**
-     * Removes a client and all references in case of timeout/error.
-     *
-     * @param Connection $connection The connection object to remove.
-     * @return void
-     */
-    public function removeClientOnError(Connection $connection): void
-    {
-        $this->removeClientOnClose($connection);
     }
 
     /**
@@ -353,20 +335,10 @@ class Server
      * Removes an ip from ip storage.
      *
      * @param string $ip An ip address.
-     * @return bool True if ip could be removed.
      */
-    private function removeIpFromStorage(string $ip): bool
+    private function removeIpFromStorage(string $ip): void
     {
-        if (!isset($this->ipStorage[$ip])) {
-            return false;
-        }
-        if ($this->ipStorage[$ip] === 1) {
-            unset($this->ipStorage[$ip]);
-            return true;
-        }
-        $this->ipStorage[$ip]--;
-
-        return true;
+        unset($this->ipStorage[$ip]);
     }
 
     /**
@@ -400,73 +372,18 @@ class Server
         $protocol = 'tcp://';
         $url = $protocol . $host . ':' . $port;
         $this->context = stream_context_create();
-        $this->master = stream_socket_server(
+        $this->masterConnection = stream_socket_server(
             $url,
             $errno,
             $err,
             STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
             $this->context
         );
-        if ($this->master === false) {
-            throw new \RuntimeException('Error creating socket: ' . $err);
+        if ($this->masterConnection === false) {
+            throw new RuntimeException('Error creating socket: ' . $err);
         }
 
-        $this->sockets[] = $this->master;
-    }
-
-    /**
-     * Reads from stream.
-     *
-     * @param $resource
-     * @throws \RuntimeException
-     * @return string
-     */
-    protected function readBuffer($resource): string
-    {
-        $buffer = '';
-        $buffSize = 8192;
-        $metadata['unread_bytes'] = 0;
-        do {
-            if (feof($resource)) {
-                throw new \RuntimeException('Could not read from stream.');
-            }
-            $result = fread($resource, $buffSize);
-            if ($result === false || feof($resource)) {
-                throw new \RuntimeException('Could not read from stream.');
-            }
-            $buffer .= $result;
-            $metadata = stream_get_meta_data($resource);
-            $buffSize = ($metadata['unread_bytes'] > $buffSize) ? $buffSize : $metadata['unread_bytes'];
-        } while ($metadata['unread_bytes'] > 0);
-
-        return $buffer;
-    }
-
-    /**
-     * Write to stream.
-     *
-     * @param $resource
-     * @param string $string
-     * @return int
-     */
-    public function writeBuffer($resource, string $string): int
-    {
-        $stringLength = strlen($string);
-        if ($stringLength === 0) {
-            return 0;
-        }
-
-        for ($written = 0; $written < $stringLength; $written += $fwrite) {
-            $fwrite = @fwrite($resource, substr($string, $written));
-            if ($fwrite === false) {
-                throw new \RuntimeException('Could not write to stream.');
-            }
-            if ($fwrite === 0) {
-                throw new \RuntimeException('Could not write to stream.');
-            }
-        }
-
-        return $written;
+        $this->sockets[] = $this->masterConnection;
     }
 
     /**
@@ -482,22 +399,13 @@ class Server
         }
         $this->icpSocket = socket_create(AF_UNIX, SOCK_DGRAM, 0);
         if ($this->icpSocket === false) {
-            throw new \RuntimeException('Could not open ipc socket.');
+            throw new RuntimeException('Could not open ipc socket.');
         }
         if (socket_set_nonblock($this->icpSocket) === false) {
-            throw new \RuntimeException('Could not set nonblock mode for ipc socket.');
+            throw new RuntimeException('Could not set nonblock mode for ipc socket.');
         }
         if (socket_bind($this->icpSocket, self::IPC_SOCKET_PATH) === false) {
-            throw new \RuntimeException('Could not bind to ipc socket.');
-        }
-        if ($this->ipcOwner !== '') {
-            chown(self::IPC_SOCKET_PATH, $this->ipcOwner);
-        }
-        if ($this->ipcGroup !== '') {
-            chgrp(self::IPC_SOCKET_PATH, $this->ipcGroup);
-        }
-        if ($this->ipcMode !== 0) {
-            chmod(self::IPC_SOCKET_PATH, $this->ipcMode);
+            throw new RuntimeException('Could not bind to ipc socket.');
         }
     }
 
@@ -520,38 +428,5 @@ class Server
 
         $payload = IPCPayload::fromJson($buffer);
         $this->webSocketApplication->onIPCData($payload->data);
-    }
-
-    /**
-     * Sets the icpOwner value.
-     *
-     * @param string $owner
-     * @return void
-     */
-    public function setIPCOwner(string $owner): void
-    {
-        $this->ipcOwner = $owner;
-    }
-
-    /**
-     * Sets the ipcGroup value.
-     *
-     * @param string $group
-     * @return void
-     */
-    public function setIPCGroup(string $group): void
-    {
-        $this->ipcGroup = $group;
-    }
-
-    /**
-     * Sets the ipcMode value.
-     *
-     * @param int $mode
-     * @return void
-     */
-    public function setIPCMode(int $mode): void
-    {
-        $this->ipcMode = $mode;
     }
 }
