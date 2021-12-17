@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 namespace WebSocket\WebSocketController;
 
-use Cake\Console\ConsoleIo;
 use Cake\Core\App;
-use Cake\Core\Container;
 use Cake\Error\FatalErrorException;
 use ReflectionClass;
 use WebSocket\Server\ConsoleIoLogger;
@@ -48,10 +46,10 @@ class WebSocketControllerFactory
      * @param string $controller
      * @param string $action
      * @param array $payload
-     * @return array|null
+     * @return false|array|null
      * @throws \ReflectionException
      */
-    public function invoke(Server $server, ConsoleIoLogger $logger, string|false $plugin, string $controller, string $action, array $payload): null|array
+    public function invoke(Server $server, ConsoleIoLogger $logger, string|false $plugin, string $controller, string $action, array $payload): false|null|array
     {
         $className = $this->getControllerClass($plugin, $controller);
         $pluginPath = '';
@@ -60,12 +58,14 @@ class WebSocketControllerFactory
         }
         $fullControllerName = $pluginPath . $controller;
         if ($className === null) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+            $logger->error(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+            return false;
         }
 
         $reflection = new ReflectionClass($className);
         if ($reflection->isAbstract()) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+            $logger->error(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+            return false;
         }
         if (!empty($this->controllers[$className])) {
             $controllerClass = $this->controllers[$className];
@@ -74,18 +74,22 @@ class WebSocketControllerFactory
             $this->controllers[$className] = $controllerClass;
         }
         if ($reflection->getParentClass() === false || $reflection->getParentClass()->name !== WebSocketController::class) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s" must extends from "%s".', $controllerClass::class, WebSocketController::class));
+            $logger->error(sprintf('WebSocketController "%s" must extends from "%s".', $controllerClass::class, WebSocketController::class));
+            return false;
         }
         if (!$reflection->hasMethod($action)) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s::%s(array $payload)" dos not exist.',$controllerClass::class, $action));
+            $logger->error(sprintf('WebSocketController "%s::%s(array $payload)" dos not exist.',$controllerClass::class, $action));
+            return false;
         }
         $method = $reflection->getMethod($action);
         if (str_starts_with($action, '_') || !$method->isPublic()) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s::%s" must to be public and without starts with "_".',$controllerClass::class, $action));
+            $logger->error(sprintf('WebSocketController "%s::%s" must to be public and without starts with "_".',$controllerClass::class, $action));
+            return false;
         }
         $parameters = $method->getParameters();
         if (count($parameters) !== 1 || $parameters[0]->getType()->getName() !== 'array') {
-            throw new FatalErrorException(sprintf('WebSocketController "%s::%s" must to have only the "array" "$payload" parameter.',$controllerClass::class, $action));
+            $logger->error(sprintf('WebSocketController "%s::%s" must to have only the "array" "$payload" parameter.',$controllerClass::class, $action));
+            return false;
         }
 
         $result = $controllerClass->{$action}($payload);
@@ -116,12 +120,12 @@ class WebSocketControllerFactory
         // controller names as they allow direct references to
         // be created.
         if (
-            strpos($controller, '\\') !== false ||
-            strpos($controller, '/') !== false ||
-            strpos($controller, '.') !== false ||
+            str_contains($controller, '\\') ||
+            str_contains($controller, '/') ||
+            str_contains($controller, '.') ||
             $firstChar === strtolower($firstChar)
         ) {
-            throw new FatalErrorException(sprintf('WebSocketController "%s" not found.', $pluginPath . $controller));
+            return null;
         }
 
         /** @var class-string<\Cake\Controller\Controller>|null */

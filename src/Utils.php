@@ -13,9 +13,11 @@ class Utils
 
     /**
      * @param array $route
+     * @param bool $ignorePass
+     * @param bool $ignoreQuery
      * @return string
      */
-    public static function routeToMd5(array $route): string
+    public static function routeToMd5(array $route, bool $ignorePass = false, bool $ignoreQuery = false): string
     {
         if (empty($route['controller'])) {
             $route['controller'] = Router::getRequest()->getParam('controller');
@@ -47,8 +49,8 @@ class Utils
             Hash::get($route, 'prefix', ''),
         ];
         $md5Items[] = md5(json_encode($base));
-        $md5Items[] = md5(json_encode($route['pass']));
-        $md5Items[] = md5(json_encode($route['?']));
+        $md5Items[] = $ignorePass ? 'none' : md5(json_encode($route['pass']));
+        $md5Items[] = $ignoreQuery ? 'none' : md5(json_encode($route['?']));
 
         return implode('.', $md5Items);
     }

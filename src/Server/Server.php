@@ -204,6 +204,7 @@ class Server
      * Listens for connections, handles connect/disconnect, e.g.
      *
      * @return void
+     * @throws \ReflectionException
      */
     public function run(): void
     {
@@ -426,7 +427,7 @@ class Server
             return;
         }
 
-        $payload = IPCPayload::fromJson($buffer);
-        $this->webSocketApplication->onIPCData($payload->data);
+        $ipcPayload = IPCPayload::fromJson($buffer);
+        $this->webSocketApplication->onIPCData($ipcPayload);
     }
 }

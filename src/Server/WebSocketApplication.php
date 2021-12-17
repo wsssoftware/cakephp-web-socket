@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace WebSocket\Server;
 
 use Cake\I18n\FrozenTime;
+use Cake\I18n\Number;
 use Cake\Utility\Hash;
 use Cake\Utility\Security;
 use JetBrains\PhpStorm\Pure;
@@ -111,11 +112,30 @@ class WebSocketApplication
     /**
      * This method is called when server receive to for an application on the IPC socket.
      *
-     * @param array $data
+     * @param \WebSocket\Server\IPCPayload $ipcPayload
      */
-    public function onIPCData(array $data): void
+    public function onIPCData(IPCPayload $ipcPayload): void
     {
-
+        $connections = $this->server->getConnections();
+        $sent = 0;
+        foreach ($connections as $connection) {
+            if ($ipcPayload->isConnectionInsideFilters($connection)) {
+                $connection->sendPayload(
+                    $ipcPayload->getController(),
+                    $ipcPayload->getAction(),
+                    $ipcPayload->getPayload()
+                );
+                $sent++;
+            }
+        }
+        $this->server->getLogger()->info(sprintf(
+            'New push received and was sent to controller "%s" action "%s" with %s filter(s) to %s of %s connections.',
+            $ipcPayload->getController(),
+            $ipcPayload->getAction(),
+            Number::format(count($ipcPayload->getFilters())),
+            Number::format($sent),
+            Number::format(count($connections))
+        ));
     }
 
     /**
@@ -145,6 +165,6 @@ class WebSocketApplication
         $connection->setUserId($payload['userId']);
         $connection->setRouteMd5($payload['routeMd5']);
         $this->wasIdentified = true;
-        $this->getLogger()->wrapConnection($connection)->info('Identity setted for this connection!');
+        $this->getLogger()->wrapConnection($connection)->info(sprintf('Identity setted! SessionId: %s | UserId: %s | RouteMd5: %s', $connection->getSessionId(), $connection->getUserId(), $connection->getRouteMd5()));
     }
 }

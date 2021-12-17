@@ -245,6 +245,7 @@ class Connection
      *
      * @param string $data
      * @return void
+     * @throws \ReflectionException
      */
     public function onData(string $data): void
     {
@@ -259,6 +260,7 @@ class Connection
      * Decodes incoming data and executes the requested action.
      *
      * @param string $data
+     * @throws \ReflectionException
      */
     private function handle(string $data): void
     {
@@ -285,7 +287,7 @@ class Connection
             $this->server->removeConnection($this);
             return;
         }
-
+        $this->server->getLogger()->wrapConnection($this)->info(sprintf('New "%s" message received!', $decodedData['type']));
         switch ($decodedData['type']) {
             case 'text':
                 $this->server->getWebSocketApplication()->onData($decodedData['payload'], $this);
@@ -321,6 +323,7 @@ class Connection
         try {
             $encodedData = $this->dataHandler->encode($payload, $type, $masked);
             Buffer::write($this->socket, $encodedData);
+            $this->server->getLogger()->wrapConnection($this)->info(sprintf('New "%s" message sent!', $type));
         } catch (RuntimeException $e) {
             $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
             $this->server->removeConnection($this);
