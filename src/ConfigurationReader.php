@@ -5,6 +5,7 @@ namespace WebSocket;
 
 use Cake\Core\Configure;
 use Cake\Utility\Hash;
+use RuntimeException;
 use WebSocket\Enum\WebSocketProtocol;
 use WebSocket\Server\Timer;
 
@@ -77,7 +78,7 @@ class ConfigurationReader
     public function __construct()
     {
         $defaultHttpHost = Hash::get($_SERVER, 'HTTP_HOST', '127.0.0.1');
-        $defaultWebSocketProtocol = Hash::get($_SERVER, 'REQUEST_SCHEME', '') === 'https' ? \Toolkit\Enum\WebSocketProtocol::WSS : WebSocketProtocol::WS;
+        $defaultWebSocketProtocol = Hash::get($_SERVER, 'REQUEST_SCHEME', '') === 'https' ? WebSocketProtocol::WSS : WebSocketProtocol::WS;
 
         $configuration = Configure::read('WebSocket', []);
         $this->webSocketProtocol = Hash::get($configuration, 'webSocketProtocol', $defaultWebSocketProtocol);
@@ -103,10 +104,10 @@ class ConfigurationReader
         $timers = Hash::get($configuration, 'timers', []);
         foreach ($timers as $timer) {
             if (!class_exists($timer)) {
-                throw new \RuntimeException(sprintf('All timers must to be a FQN of a class that extends from "%s"!', Timer::class));
+                throw new RuntimeException(sprintf('All timers must to be a FQN of a class that extends from "%s"!', Timer::class));
             }
             if (!is_subclass_of($timer, Timer::class)) {
-                throw new \RuntimeException(sprintf('All timers must to be a extension from "%s"!', Timer::class));
+                throw new RuntimeException(sprintf('All timers must to be a extension from "%s"!', Timer::class));
             }
         }
         $this->timers = $timers;
