@@ -33,6 +33,15 @@ class ConfigurationReader
     protected string|false $proxy;
 
     /**
+     * When proxy is setted:
+     * If true will use the proxy every time
+     * If false will use only when protocol is WSS
+     *
+     * @var bool
+     */
+    protected bool $forceProxy;
+
+    /**
      * @var string
      */
     protected string $host;
@@ -83,6 +92,7 @@ class ConfigurationReader
         $configuration = Configure::read('WebSocket', []);
         $this->webSocketProtocol = Hash::get($configuration, 'webSocketProtocol', $defaultWebSocketProtocol);
         $this->proxy = Hash::get($configuration, 'proxy', false);
+        $this->forceProxy = Hash::get($configuration, 'forceProxy', false);
         $this->host = Hash::get($configuration, 'host', '127.0.0.1');
         $this->httpHost = Hash::get($configuration, 'httpHost', $defaultHttpHost);
         $this->port = Hash::get($configuration, 'port', 8000);
@@ -140,6 +150,14 @@ class ConfigurationReader
     public function getProxy(): bool|string
     {
         return $this->proxy;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isForceProxy(): mixed
+    {
+        return $this->forceProxy;
     }
 
     /**

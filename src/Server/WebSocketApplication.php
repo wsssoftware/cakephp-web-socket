@@ -86,8 +86,8 @@ class WebSocketApplication
     public function onData(string $data, Connection $connection): void
     {
         $data = $connection->decodeData($data);
-        if (!empty($data['initialPayload'])) {
-            $this->processInitialPayload($data, $connection);
+        if (!empty($data['initializePayload'])) {
+            $this->processInitializePayload($data, $connection);
             return;
         }
         if ($this->wasIdentified === false) {
@@ -142,10 +142,10 @@ class WebSocketApplication
      * @param array $data
      * @param \WebSocket\Server\Connection $connection
      */
-    protected function processInitialPayload(array $data, Connection $connection): void
+    protected function processInitializePayload(array $data, Connection $connection): void
     {
         $this->getLogger()->wrapConnection($connection)->info('Trying to set a identity for this connection...');
-        $payload = urldecode($data['initialPayload']);
+        $payload = urldecode($data['initializePayload']);
         $payload = Security::decrypt($payload, Security::getSalt());
         if ($payload === null) {
             $this->getLogger()->wrapConnection($connection)->warning('Wrong/missing identify payload intent. Performing disconnect...');

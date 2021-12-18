@@ -10,6 +10,7 @@ use Cake\Routing\Router;
 use Cake\Utility\Security;
 use Cake\View\Helper;
 use WebSocket\ConfigurationReader;
+use WebSocket\Enum\WebSocketProtocol;
 use WebSocket\Utils;
 
 /**
@@ -38,23 +39,23 @@ class WebSocketHelper extends Helper
     {
         $configuration = ConfigurationReader::getInstance();
         $proxy = $configuration->getProxy();
-        $initialPayload = $this->getEncryptedInitialPayload();
-        if ($proxy !== false) {
+        $initializePayload = $this->getEncryptedInitializePayload();
+        if ($proxy !== false && ($configuration->getWebSocketProtocol() === WebSocketProtocol::WSS || $configuration->isForceProxy())) {
             $script = sprintf(
-                "CakePHPWebSocket.connect('%s://%s/%s', '%s', %s);",
+                "CakePHPWebSocket.initialize('%s://%s/%s', '%s', %s);",
                 $configuration->getWebSocketProtocol()->getProtocol(),
                 $configuration->getHttpHost(),
                 $proxy,
-                $initialPayload,
+                $initializePayload,
                 Configure::read('debug') ? 'true' : 'false'
             );
         } else {
             $script = sprintf(
-                "CakePHPWebSocket.connect('%s://%s:%s', '%s', %s);",
+                "CakePHPWebSocket.initialize('%s://%s:%s', '%s', %s);",
                 $configuration->getWebSocketProtocol()->getProtocol(),
                 $configuration->getHttpHost(),
                 $configuration->getPort(),
-                $initialPayload,
+                $initializePayload,
                 Configure::read('debug') ? 'true' : 'false'
             );
         }
@@ -65,7 +66,7 @@ class WebSocketHelper extends Helper
     /**
      * @return string
      */
-    protected function getEncryptedInitialPayload(): string
+    protected function getEncryptedInitializePayload(): string
     {
         $request = $this->getView()->getRequest();
         $routeMd5 = Utils::routeToMd5(Router::parseRequest($request));
