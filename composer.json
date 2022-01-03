@@ -1,8 +1,8 @@
 {
     "name": "wsssoftware/cakephp-web-socket",
     "description": "WebSocket plugin for CakePHP",
-    "type": "cakephp-plugin",
     "license": "MIT",
+    "type": "cakephp-plugin",
     "keywords": [
         "cakephp",
         "websocket",
@@ -18,10 +18,11 @@
     ],
     "require": {
         "php": ">=8.1",
-        "cakephp/cakephp": "^4.3",
-        "ext-sockets": "*"
+        "ext-sockets": "*",
+        "cakephp/cakephp": "^4.3"
     },
     "require-dev": {
+        "cakephp/cakephp-codesniffer": "^4.5",
         "ramsey/devtools": "^1.7"
     },
     "minimum-stability": "dev",

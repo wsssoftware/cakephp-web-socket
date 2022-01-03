@@ -13,47 +13,38 @@ use WebSocket\Server\DataHandler\Hybi10DataHandler;
  */
 class Connection
 {
-
     /**
      * @var bool
      */
     public bool $waitingForData = false;
-
-    /**
-     * @var Server $server
-     */
-    private Server $server;
-
-    /**
-     * @var resource $socket
-     */
-    private $socket;
-
-    /**
-     * @var bool $handshakeDone
-     */
-    private bool $handshakeDone = false;
-
-    /**
-     * @var string $ip
-     */
-    private string $ip;
-
-    /**
-     * @var int $port
-     */
-    private int $port;
-
-    /**
-     * @var string $dataBuffer
-     */
-    private string $dataBuffer = '';
-
     /**
      * @var \WebSocket\Server\DataHandler\DataHandler
      */
     protected DataHandler $dataHandler;
-
+    /**
+     * @var \WebSocket\Server\Server $server
+     */
+    private Server $server;
+    /**
+     * @var resource $socket
+     */
+    private $socket;
+    /**
+     * @var bool $handshakeDone
+     */
+    private bool $handshakeDone = false;
+    /**
+     * @var string $ip
+     */
+    private string $ip;
+    /**
+     * @var int $port
+     */
+    private int $port;
+    /**
+     * @var string $dataBuffer
+     */
+    private string $dataBuffer = '';
     /**
      * @var string $id
      */
@@ -74,8 +65,8 @@ class Connection
     private ?string $sessionId = null;
 
     /**
-     * @param Server $server
-     * @param resource $socket
+     * @param \WebSocket\Server\Server $server WebSocket Server
+     * @param resource $socket WebSocket connection resource
      */
     public function __construct(Server $server, $socket)
     {
@@ -91,7 +82,7 @@ class Connection
             $tmp = explode(':', $socketName);
         }
         $this->ip = $tmp[0];
-        $this->port = (int) $tmp[1];
+        $this->port = (int)$tmp[1];
         $this->id = md5($this->ip . $this->port . spl_object_hash($this));
 
         $this->dataHandler = new Hybi10DataHandler($this);
@@ -99,13 +90,12 @@ class Connection
         $this->server->getLogger()->wrapConnection($this)->info('Connected');
     }
 
-
     /**
      * Decodes json payload received from stream.
      *
-     * @param string $data
+     * @param string $data Data to be decoded
      * @return array
-     *@throws \RuntimeException
+     * @throws \RuntimeException
      */
     public function decodeData(string $data): array
     {
@@ -118,132 +108,9 @@ class Connection
     }
 
     /**
-     * Encodes payload to be sent to client.
-     *
-     * @param array $data
-     * @return string
-     */
-    public function encodeData(array $data): string
-    {
-        return json_encode($data);
-    }
-
-    /**
-     * Handles the client-server handshake.
-     *
-     * @param string $data
-     * @throws \RuntimeException
-     * @return bool
-     */
-    private function handshake(string $data): bool
-    {
-        $this->server->getLogger()->wrapConnection($this)->info('Performing handshake');
-        $lines = preg_split("/\r\n/", $data);
-
-        // check for valid http-header:
-        if (!preg_match('/\AGET (\S+) HTTP\/1.1\z/', $lines[0], $matches)) {
-            $this->server->getLogger()->wrapConnection($this)->error('Invalid request: ' . $lines[0]);
-            $this->sendHttpResponse();
-            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-            return false;
-        }
-
-        // check for valid application:
-        $path = $matches[1];
-        //$applicationKey = substr($path, 1);
-
-        // generate headers array:
-        $headers = [];
-        foreach ($lines as $line) {
-            $line = chop($line);
-            if (preg_match('/\A(\S+): (.*)\z/', $line, $matches)) {
-                $headers[ strtolower($matches[1])] = $matches[2];
-            }
-        }
-
-        // check for supported websocket version:
-        if (!isset($headers['sec-websocket-version']) || $headers['sec-websocket-version'] < 6) {
-            $this->server->getLogger()->wrapConnection($this)->error('Unsupported websocket version.');
-            $this->sendHttpResponse(501);
-            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-            $this->server->removeConnection($this);
-            return false;
-        }
-
-        // check origin:
-        if ($this->server->getConfiguration()->isCheckOrigin() === true) {
-            $origin = (isset($headers['sec-websocket-origin'])) ? $headers['sec-websocket-origin'] : '';
-            $origin = (isset($headers['origin'])) ? $headers['origin'] : $origin;
-            if (empty($origin)) {
-                $this->server->getLogger()->wrapConnection($this)->error('No origin provided.');
-                $this->sendHttpResponse(401);
-                stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-                $this->server->removeConnection($this);
-                return false;
-            }
-
-            if ($this->server->checkOrigin($origin) === false) {
-                $this->server->getLogger()->wrapConnection($this)->error('Invalid origin provided.');
-                $this->sendHttpResponse(401);
-                stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
-                $this->server->removeConnection($this);
-                return false;
-            }
-        }
-
-        // do handshake: (hybi-10)
-        $secKey = $headers['sec-websocket-key'];
-        $secAccept = base64_encode(pack('H*', sha1($secKey . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')));
-        $response = "HTTP/1.1 101 Switching Protocols\r\n";
-        $response .= "Upgrade: websocket\r\n";
-        $response .= "Connection: Upgrade\r\n";
-        $response .= "Sec-WebSocket-Accept: " . $secAccept . "\r\n";
-        if (isset($headers['sec-websocket-protocol']) && !empty($headers['sec-websocket-protocol'])) {
-            $response .= "Sec-WebSocket-Protocol: " . substr($path, 1) . "\r\n";
-        }
-        $response .= "\r\n";
-        try {
-            Buffer::write($this->socket, $response);
-        } catch (RuntimeException $e) {
-            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
-            return false;
-        }
-        $this->server->getLogger()->wrapConnection($this)->info('Handshake sent');
-        $this->server->getWebSocketApplication()->onConnect($this);
-
-        return true;
-    }
-
-    /**
-     * Sends a http response to client.
-     *
-     * @param int $httpStatusCode
-     * @throws \RuntimeException
-     * @return void
-     */
-    public function sendHttpResponse(int $httpStatusCode = 400): void
-    {
-        $httpHeader = 'HTTP/1.1 ';
-        $httpHeader .= match ($httpStatusCode) {
-            400 => '400 Bad Request',
-            401 => '401 Unauthorized',
-            403 => '403 Forbidden',
-            404 => '404 Not Found',
-            501 => '501 Not Implemented',
-        };
-        $httpHeader .= "\r\n";
-        try {
-            Buffer::write($this->socket, $httpHeader);
-        } catch (RuntimeException $e) {
-            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
-            // TODO Handle write to socket error
-        }
-    }
-
-    /**
      * Triggered whenever the server receives new data from a client.
      *
-     * @param string $data
+     * @param string $data Data passed on event
      * @return void
      * @throws \ReflectionException
      */
@@ -251,6 +118,7 @@ class Connection
     {
         if ($this->handshakeDone) {
             $this->handle($data);
+
             return;
         }
         $this->handshakeDone = $this->handshake($data);
@@ -259,7 +127,8 @@ class Connection
     /**
      * Decodes incoming data and executes the requested action.
      *
-     * @param string $data
+     * @param string $data Data to be handled
+     * @return void
      * @throws \ReflectionException
      */
     private function handle(string $data): void
@@ -275,6 +144,7 @@ class Connection
         if (empty($decodedData)) {
             $this->waitingForData = true;
             $this->dataBuffer .= $data;
+
             return;
         } else {
             $this->dataBuffer = '';
@@ -285,58 +155,79 @@ class Connection
             $this->sendHttpResponse(401);
             stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
             $this->server->removeConnection($this);
+
             return;
         }
-        $this->server->getLogger()->wrapConnection($this)->info(sprintf('New "%s" message received!', $decodedData['type']));
+        $this->server
+            ->getLogger()
+            ->wrapConnection($this)->info(
+                sprintf('New "%s" message received!', $decodedData['type'])
+            );
         switch ($decodedData['type']) {
             case 'text':
-                $this->server->getWebSocketApplication()->onData($decodedData['payload'], $this);
+                $this->server->getWebSocketApplication()->onData(
+                    $decodedData['payload'],
+                    $this
+                );
                 break;
             case 'binary':
                 $this->close(1003);
                 break;
             case 'ping':
                 $this->send($decodedData['payload'], 'pong');
-                $this->server->getLogger()->wrapConnection($this)->info('Ping? Pong!');
+                $this->server->getLogger()->wrapConnection($this)->info(
+                    'Ping? Pong!'
+                );
                 break;
             case 'pong':
                 // server currently not sending pings, so no pong should be received.
                 break;
             case 'close':
                 $this->close();
-                $this->server->getLogger()->wrapConnection($this)->info('Disconnected');
+                $this->server->getLogger()->wrapConnection($this)->info(
+                    'Disconnected'
+                );
                 break;
         }
     }
 
     /**
-     * Sends data to a client.
+     * Sends a http response to client.
      *
-     * @param string $payload
-     * @param string $type
-     * @param bool $masked
-     * @return bool
+     * @param int $httpStatusCode HTTP status code
+     * @return void
+     * @throws \RuntimeException
      */
-    public function send(string $payload, string $type = 'text', bool $masked = false): bool
+    public function sendHttpResponse(int $httpStatusCode = 400): void
     {
-
+        $httpHeader = 'HTTP/1.1 ';
+        $httpHeader .= match ($httpStatusCode) {
+            400 => '400 Bad Request',
+            401 => '401 Unauthorized',
+            403 => '403 Forbidden',
+            404 => '404 Not Found',
+            501 => '501 Not Implemented',
+        };
+        $httpHeader .= "\r\n";
         try {
-            $encodedData = $this->dataHandler->encode($payload, $type, $masked);
-            Buffer::write($this->socket, $encodedData);
-            $this->server->getLogger()->wrapConnection($this)->info(sprintf('New "%s" message sent!', $type));
+            Buffer::write($this->socket, $httpHeader);
         } catch (RuntimeException $e) {
-            $this->server->getLogger()->error(sprintf('Error while writing the buffer of message. Error message: %s', $e->getMessage()));
-            $this->server->removeConnection($this);
-            return false;
+            $this->server
+                ->getLogger()
+                ->error(
+                    sprintf(
+                        'Error while writing the buffer of message. Error message: %s',
+                        $e->getMessage()
+                    )
+                );
+            // TODO Handle write to socket error
         }
-
-        return true;
     }
 
     /**
      * Closes connection to a client.
      *
-     * @param int $statusCode
+     * @param int $statusCode Close status code
      * @return void
      */
     public function close(int $statusCode = 1000): void
@@ -347,7 +238,7 @@ class Connection
         $payload = implode('', $payload);
 
         $payload .= match ($statusCode) {
-            1000 =>  'normal closure',
+            1000 => 'normal closure',
             1001 => 'going away',
             1002 => 'protocol error',
             1003 => 'unknown data (opcode)',
@@ -363,6 +254,155 @@ class Connection
         $this->server->removeConnection($this);
     }
 
+    /**
+     * Sends data to a client.
+     *
+     * @param string $payload Payload to be sent to client
+     * @param string $type Message type
+     * @param bool $masked Masked option
+     * @return bool
+     */
+    public function send(
+        string $payload,
+        string $type = 'text',
+        bool $masked = false
+    ): bool {
+        try {
+            $encodedData = $this->dataHandler->encode($payload, $type, $masked);
+            Buffer::write($this->socket, $encodedData);
+            $this->server->getLogger()->wrapConnection($this)->info(
+                sprintf('New "%s" message sent!', $type)
+            );
+        } catch (RuntimeException $e) {
+            $this->server->getLogger()->error(
+                sprintf(
+                    'Error while writing the buffer of message. Error message: %s',
+                    $e->getMessage()
+                )
+            );
+            $this->server->removeConnection($this);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Handles the client-server handshake.
+     *
+     * @param string $data Handshake data
+     * @return bool
+     * @throws \RuntimeException
+     */
+    private function handshake(string $data): bool
+    {
+        $this->server->getLogger()->wrapConnection($this)->info(
+            'Performing handshake'
+        );
+        $lines = preg_split("/\r\n/", $data);
+
+        // check for valid http-header:
+        if (!preg_match('/\AGET (\S+) HTTP\/1.1\z/', $lines[0], $matches)) {
+            $this->server->getLogger()->wrapConnection($this)->error(
+                'Invalid request: ' . $lines[0]
+            );
+            $this->sendHttpResponse();
+            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+
+            return false;
+        }
+
+        // check for valid application:
+        $path = $matches[1];
+        //$applicationKey = substr($path, 1);
+
+        // generate headers array:
+        $headers = [];
+        foreach ($lines as $line) {
+            $line = chop($line);
+            if (preg_match('/\A(\S+): (.*)\z/', $line, $matches)) {
+                $headers[strtolower($matches[1])] = $matches[2];
+            }
+        }
+
+        // check for supported websocket version:
+        if (
+            !isset($headers['sec-websocket-version'])
+            || $headers['sec-websocket-version'] < 6
+        ) {
+            $this->server->getLogger()->wrapConnection($this)->error(
+                'Unsupported websocket version.'
+            );
+            $this->sendHttpResponse(501);
+            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+            $this->server->removeConnection($this);
+
+            return false;
+        }
+
+        // check origin:
+        if ($this->server->getConfiguration()->isCheckOrigin() === true) {
+            $origin = $headers['sec-websocket-origin'] ?? '';
+            $origin = $headers['origin'] ?? $origin;
+            if (empty($origin)) {
+                $this->server->getLogger()->wrapConnection($this)->error(
+                    'No origin provided.'
+                );
+                $this->sendHttpResponse(401);
+                stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+                $this->server->removeConnection($this);
+
+                return false;
+            }
+
+            if ($this->server->checkOrigin($origin) === false) {
+                $this->server->getLogger()->wrapConnection($this)->error(
+                    'Invalid origin provided.'
+                );
+                $this->sendHttpResponse(401);
+                stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+                $this->server->removeConnection($this);
+
+                return false;
+            }
+        }
+
+        // do handshake: (hybi-10)
+        $secKey = $headers['sec-websocket-key'];
+        $secAccept = base64_encode(
+            pack('H*', sha1($secKey . '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'))
+        );
+        $response = "HTTP/1.1 101 Switching Protocols\r\n";
+        $response .= "Upgrade: websocket\r\n";
+        $response .= "Connection: Upgrade\r\n";
+        $response .= 'Sec-WebSocket-Accept: ' . $secAccept . "\r\n";
+        if (
+            isset($headers['sec-websocket-protocol'])
+            && !empty($headers['sec-websocket-protocol'])
+        ) {
+            $response .= 'Sec-WebSocket-Protocol: ' . substr($path, 1) . "\r\n";
+        }
+        $response .= "\r\n";
+        try {
+            Buffer::write($this->socket, $response);
+        } catch (RuntimeException $e) {
+            $this->server->getLogger()->error(
+                sprintf(
+                    'Error while writing the buffer of message. Error message: %s',
+                    $e->getMessage()
+                )
+            );
+
+            return false;
+        }
+        $this->server->getLogger()->wrapConnection($this)->info(
+            'Handshake sent'
+        );
+        $this->server->getWebSocketApplication()->onConnect($this);
+
+        return true;
+    }
 
     /**
      * Triggered when a client closes the connection to server.
@@ -395,14 +435,34 @@ class Connection
         return $this->port;
     }
 
-    public function sendPayload(string $controller, string $action, array $payload): void
-    {
+    /**
+     * @param string $controller Controller name to send
+     * @param string $action Action name to send
+     * @param array $payload Payload data to send
+     * @return void
+     */
+    public function sendPayload(
+        string $controller,
+        string $action,
+        array $payload
+    ): void {
         $data = [
             'controller' => $controller,
             'action' => $action,
             'payload' => $payload,
         ];
         $this->send($this->encodeData($data));
+    }
+
+    /**
+     * Encodes payload to be sent to client.
+     *
+     * @param array $data Data to be encoded
+     * @return string
+     */
+    public function encodeData(array $data): string
+    {
+        return json_encode($data);
     }
 
     /**
@@ -434,7 +494,8 @@ class Connection
     }
 
     /**
-     * @param string|null $routeMd5
+     * @param string|null $routeMd5 The route data in md5 hash
+     * @return  void
      */
     public function setRouteMd5(?string $routeMd5): void
     {
@@ -450,7 +511,8 @@ class Connection
     }
 
     /**
-     * @param int|null $userId
+     * @param int|null $userId User id to be setted
+     * @return void
      */
     public function setUserId(?int $userId): void
     {
@@ -466,7 +528,8 @@ class Connection
     }
 
     /**
-     * @param string|null $sessionId
+     * @param string|null $sessionId Session id to be setted
+     * @return void
      */
     public function setSessionId(?string $sessionId): void
     {

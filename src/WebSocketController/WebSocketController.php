@@ -28,13 +28,12 @@ class WebSocketController
     protected ConsoleIoLogger $logger;
 
     /**
-     * @param \WebSocket\Server\Server $server
-     * @param \WebSocket\Server\ConsoleIoLogger $logger
+     * @param \WebSocket\Server\Server $server WebSocket Server
+     * @param \WebSocket\Server\ConsoleIoLogger $logger Logger to print outputs
      */
     public function __construct(Server $server, ConsoleIoLogger $logger)
     {
         $this->server = $server;
         $this->logger = $logger;
     }
-
 }

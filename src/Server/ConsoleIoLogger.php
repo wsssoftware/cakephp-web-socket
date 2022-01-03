@@ -1,6 +1,5 @@
 <?php
-
-declare(strict_types = 1);
+declare(strict_types=1);
 
 namespace WebSocket\Server;
 
@@ -15,7 +14,6 @@ use RuntimeException;
  */
 class ConsoleIoLogger extends AbstractLogger
 {
-
     /**
      * @var string|null
      */
@@ -32,7 +30,7 @@ class ConsoleIoLogger extends AbstractLogger
     protected bool $messagePrefix = true;
 
     /**
-     *
+     * @param \Cake\Console\ConsoleIo $io Cake ConsoleIo
      */
     public function __construct(ConsoleIo $io)
     {
@@ -56,7 +54,8 @@ class ConsoleIoLogger extends AbstractLogger
     }
 
     /**
-     * @param int $amount
+     * @param int $amount amount of lines to break
+     * @return void
      */
     public function lineBreak(int $amount = 1): void
     {
@@ -66,10 +65,10 @@ class ConsoleIoLogger extends AbstractLogger
     }
 
     /**
-     * @param \WebSocket\Server\Connection $connection
-     * @return $this
+     * @param \WebSocket\Server\Connection $connection WebSocket connection instance
+     * @return self
      */
-    public function wrapConnection(Connection $connection): self
+    public function wrapConnection(Connection $connection): ConsoleIoLogger
     {
         $this->wrap = sprintf(
             '[client %s:%s] %s',
@@ -82,9 +81,10 @@ class ConsoleIoLogger extends AbstractLogger
     }
 
     /**
-     * @param mixed $level
-     * @param string $message
-     * @param array $context
+     * @param mixed $level Log level
+     * @param string $message Log message
+     * @param array $context Context of log
+     * @return void
      */
     public function log($level, $message, array $context = [])
     {
@@ -95,7 +95,7 @@ class ConsoleIoLogger extends AbstractLogger
 
         if ($this->messagePrefix) {
             $message = sprintf(
-                "%s [%s] %s",
+                '%s [%s] %s',
                 FrozenTime::now()->format('Y-m-d H:i:s'),
                 strtoupper($level),
                 $message

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use JetBrains\PhpStorm\Pure;
+
 /**
  * Class IPCPayload
  *
@@ -10,7 +12,6 @@ namespace WebSocket\Server;
  */
 class IPCPayload
 {
-
     /**
      * @var string $controller
      */
@@ -36,10 +37,10 @@ class IPCPayload
     protected array $filters;
 
     /**
-     * @param string $controller
-     * @param string $action
-     * @param array $payload
-     * @param array $filters
+     * @param string $controller Controller name
+     * @param string $action Action name
+     * @param array $payload Payload datta
+     * @param array $filters Filters to define how will receive the message.
      */
     public function __construct(string $controller, string $action, array $payload, array $filters = [])
     {
@@ -64,16 +65,16 @@ class IPCPayload
         ]);
     }
 
-
     /**
      * Creates payload object from json encoded string.
      *
-     * @param string $json
-     * @return IPCPayload
+     * @param string $json Json to decode in a IPCPayload instance
+     * @return self
      */
     public static function fromJson(string $json): IPCPayload
     {
         $data = json_decode($json, true);
+
         return new IPCPayload($data['controller'], $data['action'], $data['payload'], $data['filters']);
     }
 
@@ -110,9 +111,10 @@ class IPCPayload
     }
 
     /**
-     * @param \WebSocket\Server\Connection $connection
+     * @param \WebSocket\Server\Connection $connection The WebSocket connection resource to check
      * @return bool
      */
+    #[Pure]
     public function isConnectionInsideFilters(Connection $connection): bool
     {
         if (!empty($this->filters['sessionIds'])) {

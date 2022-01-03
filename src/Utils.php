@@ -4,17 +4,18 @@ declare(strict_types=1);
 namespace WebSocket;
 
 use Cake\Routing\Router;
-use Cake\Utility\Hash;/**
+use Cake\Utility\Hash;
+
+/**
  * Class Utils
  * Created by allancarvalho in dezembro 16, 2021
  */
 class Utils
 {
-
     /**
-     * @param array $route
-     * @param bool $ignorePass
-     * @param bool $ignoreQuery
+     * @param array $route Route data
+     * @param bool $ignorePass Must ignore pass data or not
+     * @param bool $ignoreQuery Must ignore query data or not
      * @return string
      */
     public static function routeToMd5(array $route, bool $ignorePass = false, bool $ignoreQuery = false): string

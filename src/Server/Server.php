@@ -19,7 +19,6 @@ use WebSocket\ConfigurationReader;
  */
 class Server
 {
-
     public const IPC_SOCKET_PATH = '/tmp/cake-php-wss.sock';
 
     /**
@@ -62,7 +61,7 @@ class Server
     private array $ipStorage = [];
 
     /**
-     * @var TimerCollection $timers
+     * @var \WebSocket\Server\TimerCollection $timers
      */
     private TimerCollection $timers;
 
@@ -133,23 +132,34 @@ class Server
         $size = 98 - strlen($registryLabel);
         $beforeSpace = (int)ceil($size / 2);
         $afterSpace = (int)floor($size / 2);
-        $this->logger->info('╔══════════════════════════════════════════════════════════════════════════════════════════════════╗');
-        $this->logger->info('║' . str_repeat(' ', $beforeSpace) . $registryLabel . str_repeat(' ', $afterSpace) . '║');
-        $this->logger->info('╠══════════════════════════════════════════════════════════════════════════════════════════════════╣');
+        $this->logger->info('╔' . str_repeat('═', 98) . '╗');
+        $this->logger->info(
+            '║' . str_repeat(' ', $beforeSpace) .
+            $registryLabel . str_repeat(' ', $afterSpace) . '║'
+        );
+        $this->logger->info('╠' . str_repeat('═', 98) . '╣');
         if (!empty($timers)) {
-
             foreach ($timers as $timer) {
                 /** @var \WebSocket\Server\Timer $timer */
                 $timer = new $timer($this->logger);
                 $interval = $timer->getInterval();
                 if (empty($interval)) {
-                    throw new InvalidArgumentException(sprintf('Timer "%s" does not have a interval defined.', $timer::class));
+                    throw new InvalidArgumentException(
+                        sprintf('Timer "%s" does not have a interval defined.', $timer::class)
+                    );
                 }
-                $resultLabel = sprintf('REGISTERING TIMER "%s" with interval %sms', $timer::class, Number::format($interval));
+                $resultLabel = sprintf(
+                    'REGISTERING TIMER "%s" with interval %sms',
+                    $timer::class,
+                    Number::format($interval)
+                );
                 $size = 98 - strlen($resultLabel);
                 $beforeSpace = (int)ceil($size / 2);
                 $afterSpace = (int)floor($size / 2);
-                $this->logger->info('║' . str_repeat(' ', $beforeSpace) . $resultLabel . str_repeat(' ', $afterSpace) . '║');
+                $this->logger->info(
+                    '║' . str_repeat(' ', $beforeSpace) .
+                    $resultLabel . str_repeat(' ', $afterSpace) . '║'
+                );
 
                 $this->timers->addTimer($timer);
             }
@@ -158,11 +168,13 @@ class Server
             $size = 98 - strlen($resultLabel);
             $beforeSpace = (int)ceil($size / 2);
             $afterSpace = (int)floor($size / 2);
-            $this->logger->info('║' . str_repeat(' ', $beforeSpace) . $resultLabel . str_repeat(' ', $afterSpace) . '║');
+            $this->logger->info(
+                '║' . str_repeat(' ', $beforeSpace) .
+                $resultLabel . str_repeat(' ', $afterSpace) . '║'
+            );
         }
 
-
-        $this->logger->info('╚══════════════════════════════════════════════════════════════════════════════════════════════════╝');
+        $this->logger->info('╚' . str_repeat('═', 98) . '╝');
         $this->logger->lineBreak();
 
         $this->logger->enableMessagePrefix();
@@ -183,18 +195,25 @@ class Server
         ];
 
         $this->logger->disableMessagePrefix();
-        $this->logger->info('╔══════════════════════════════════════════════════════════════════════════════════════════════════╗');
-        $this->logger->info('║                         WELCOME TO CAKEPHP WEBSOCKET! SERVER WAS CREATED!                        ║');
-        $this->logger->info('╠══════════════════════════════════════════════════════════════════════════════════════════════════╣');
-        $this->logger->info('║                                          CONFIGURATIONS                                          ║');
-        $this->logger->info('╠══════════════════════════════════════════════════════════════════════════════════════════════════╣');
+        $this->logger->info('╔' . str_repeat('═', 98) . '╗');
+        $this->logger->info(
+            '║' . str_repeat(' ', 25) . 'WELCOME TO CAKEPHP WEBSOCKET! SERVER WAS CREATED!' .
+            str_repeat(' ', 24) . '║'
+        );
+        $this->logger->info('╠' . str_repeat('═', 98) . '╣');
+        $this->logger->info(
+            '║' . str_repeat(' ', 42) . 'CONFIGURATIONS' . str_repeat(' ', 42) . '║'
+        );
+        $this->logger->info('╠' . str_repeat('═', 98) . '╣');
         foreach ($infos as $info) {
             $size = 98 - strlen($info);
             $beforeSpace = (int)ceil($size / 2);
             $afterSpace = (int)floor($size / 2);
-            $this->logger->info('║' . str_repeat(' ', $beforeSpace) . $info . str_repeat(' ', $afterSpace) . '║');
+            $this->logger->info(
+                '║' . str_repeat(' ', $beforeSpace) . $info . str_repeat(' ', $afterSpace) . '║'
+            );
         }
-        $this->logger->info('╚══════════════════════════════════════════════════════════════════════════════════════════════════╝');
+        $this->logger->info('╚' . str_repeat('═', 98) . '╝');
         $this->logger->lineBreak();
         $this->logger->enableMessagePrefix();
     }
@@ -219,11 +238,14 @@ class Server
             $this->timers->runAll($this->getConnections());
 
             $changed_sockets = $this->sockets;
+            // @codingStandardsIgnoreStart
             @stream_select($changed_sockets, $write, $except, 0, 5000);
+            // @codingStandardsIgnoreEnd
             foreach ($changed_sockets as $socket) {
                 if ($socket === $this->masterConnection) {
-                    if (($resource = stream_socket_accept($this->masterConnection)) === false) {
-                        $this->logger->error('Socket error: ' . socket_strerror(socket_last_error($resource)));
+                    $resource = stream_socket_accept($this->masterConnection);
+                    if ($resource === false) {
+                        $this->logger->error('Socket error: Unknown');
                     } else {
                         $connection = $this->createConnection($resource);
                         $this->connections[(int)$resource] = $connection;
@@ -249,7 +271,10 @@ class Server
                     try {
                         $data = Buffer::read($socket);
                     } catch (RuntimeException $e) {
-                        $this->logger->error(sprintf('Error while reading the buffer of message. Error message: %s', $e->getMessage()));
+                        $this->logger->error(sprintf(
+                            'Error while reading the buffer of message. Error message: %s',
+                            $e->getMessage()
+                        ));
                         $this->removeConnection($connection);
                         continue;
                     }
@@ -270,7 +295,7 @@ class Server
     /**
      * Removes a client from client storage.
      *
-     * @param Connection $connection
+     * @param \WebSocket\Server\Connection $connection WebSocket connection resource
      * @return void
      */
     public function removeConnection(Connection $connection): void
@@ -279,7 +304,7 @@ class Server
         $clientPort = $connection->getPort();
         $resource = $connection->getSocket();
         $this->removeIpFromStorage($clientIp);
-        unset($this->connections[(int) $resource]);
+        unset($this->connections[(int)$resource]);
         $index = array_search($resource, $this->sockets);
         if ($index === false) {
             return;
@@ -310,7 +335,7 @@ class Server
      * Creates a connection from a socket resource`
      *
      * @param resource $resource A socket resource
-     * @return Connection
+     * @return \WebSocket\Server\Connection
      */
     protected function createConnection($resource): Connection
     {
@@ -336,6 +361,7 @@ class Server
      * Removes an ip from ip storage.
      *
      * @param string $ip An ip address.
+     * @return void
      */
     private function removeIpFromStorage(string $ip): void
     {
@@ -357,6 +383,7 @@ class Server
         if (!isset($this->ipStorage[$ip])) {
             return true;
         }
+
         return !($this->ipStorage[$ip] > $this->configuration->getMaxConnectionsPerIp());
     }
 

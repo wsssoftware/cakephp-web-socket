@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace WebSocket\Test\TestCase\Server;
 
-
 use Cake\TestSuite\TestCase;
 
 /**
@@ -13,5 +12,4 @@ use Cake\TestSuite\TestCase;
  */
 class ServerTest extends TestCase
 {
-
 }

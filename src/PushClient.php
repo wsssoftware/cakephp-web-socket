@@ -16,13 +16,12 @@ use WebSocket\Server\Server;
  */
 class PushClient
 {
-
     private const MAX_PAYLOAD_LENGTH = 65536;
 
     protected static PushClient $instance;
 
     /**
-     * @return \WebSocket\PushClient
+     * @return self
      */
     public static function getInstance(): PushClient
     {
@@ -34,10 +33,10 @@ class PushClient
     }
 
     /**
-     * @param string $controller
-     * @param string $action
-     * @param array $payload
-     * @param array $filters
+     * @param string $controller Controller name
+     * @param string $action Action name
+     * @param array $payload Payload data
+     * @param array $filters Filters to separate connections that will receive the message
      * @return bool
      */
     public function send(string $controller, string $action, array $payload, array $filters = []): bool
@@ -49,7 +48,7 @@ class PushClient
         ];
         foreach ($filters as $filterName => $filter) {
             if (!is_array($filter)) {
-                throw new FatalErrorException(sprintf('"%s" must to be an array.',$filterName));
+                throw new FatalErrorException(sprintf('"%s" must to be an array.', $filterName));
             }
         }
 
@@ -73,13 +72,15 @@ class PushClient
             throw new \RuntimeException('Could not open ipc socket.');
         }
 
+        // @codingStandardsIgnoreStart
         return @socket_connect($socket, Server::IPC_SOCKET_PATH);
+        // @codingStandardsIgnoreEnd
     }
 
     /**
      * Pushes payload into the websocket server using a unix domain socket.
      *
-     * @param IPCPayload $payload
+     * @param \WebSocket\Server\IPCPayload $payload Payload data
      * @return bool
      */
     private function sendPayloadToServer(IPCPayload $payload): bool
@@ -109,7 +110,7 @@ class PushClient
     }
 
     /**
-     * @param array $routes
+     * @param array $routes Routes data to be normalized
      * @return array
      */
     protected function normalizeRoutes(array $routes): array
@@ -148,10 +149,13 @@ class PushClient
                 '?' => Router::getRequest()->getQuery(),
             ];
 
-            $routes[$key] = Utils::routeToMd5($routes[$key], (bool)$routes[$key]['ignorePass'], (bool)$routes[$key]['ignoreQuery']);
+            $routes[$key] = Utils::routeToMd5(
+                $routes[$key],
+                (bool)$routes[$key]['ignorePass'],
+                (bool)$routes[$key]['ignoreQuery']
+            );
         }
 
         return $routes;
     }
-
 }

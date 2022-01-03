@@ -14,7 +14,6 @@ use WebSocket\Server\Server;
  */
 class WebSocketServerCommand extends Command
 {
-
     /**
      * Implement this method with your command's logic.
      *

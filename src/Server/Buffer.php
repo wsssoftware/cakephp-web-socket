@@ -14,8 +14,8 @@ class Buffer
     /**
      * Write to stream.
      *
-     * @param $resource
-     * @param string $string
+     * @param resource $resource WebSocket resource
+     * @param string $string string to write
      * @return int
      */
     public static function write($resource, string $string): int
@@ -26,7 +26,9 @@ class Buffer
         }
 
         for ($written = 0; $written < $stringLength; $written += $fwrite) {
+            // @codingStandardsIgnoreStart
             $fwrite = @fwrite($resource, substr($string, $written));
+            // @codingStandardsIgnoreEnd
             if ($fwrite === false) {
                 throw new RuntimeException('Could not write to stream.');
             }
@@ -41,7 +43,7 @@ class Buffer
     /**
      * Reads from stream.
      *
-     * @param $resource
+     * @param resource $resource WebSocket resource
      * @throws \RuntimeException
      * @return string
      */
@@ -60,7 +62,7 @@ class Buffer
             }
             $buffer .= $result;
             $metadata = stream_get_meta_data($resource);
-            $buffSize = ($metadata['unread_bytes'] > $buffSize) ? $buffSize : $metadata['unread_bytes'];
+            $buffSize = $metadata['unread_bytes'] > $buffSize ? $buffSize : $metadata['unread_bytes'];
         } while ($metadata['unread_bytes'] > 0);
 
         return $buffer;

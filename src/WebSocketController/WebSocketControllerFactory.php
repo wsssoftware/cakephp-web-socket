@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace WebSocket\WebSocketController;
 
 use Cake\Core\App;
-use Cake\Error\FatalErrorException;
 use ReflectionClass;
 use WebSocket\Server\ConsoleIoLogger;
 use WebSocket\Server\Server;
@@ -16,10 +15,6 @@ use WebSocket\Server\Server;
  */
 class WebSocketControllerFactory
 {
-
-    /**
-     * @var \WebSocket\WebSocketController\WebSocketControllerFactory
-     */
     protected static WebSocketControllerFactory $instance;
 
     /**
@@ -28,9 +23,9 @@ class WebSocketControllerFactory
     protected array $controllers = [];
 
     /**
-     * @return \WebSocket\WebSocketController\WebSocketControllerFactory
+     * @return self
      */
-    public static function getInstance(): WebSocketControllerFactory
+    public static function getInstance(): self
     {
         if (empty(self::$instance)) {
             self::$instance = new WebSocketControllerFactory();
@@ -40,17 +35,23 @@ class WebSocketControllerFactory
     }
 
     /**
-     * @param \WebSocket\Server\Server $server
-     * @param \WebSocket\Server\ConsoleIoLogger $logger
-     * @param string|false $plugin
-     * @param string $controller
-     * @param string $action
-     * @param array $payload
+     * @param \WebSocket\Server\Server $server WebSocket server
+     * @param \WebSocket\Server\ConsoleIoLogger $logger Logger to print results on console
+     * @param string|false $plugin Plugin or false
+     * @param string $controller controller of request
+     * @param string $action action of request
+     * @param array $payload Message payload
      * @return false|array|null
      * @throws \ReflectionException
      */
-    public function invoke(Server $server, ConsoleIoLogger $logger, string|false $plugin, string $controller, string $action, array $payload): false|null|array
-    {
+    public function invoke(
+        Server $server,
+        ConsoleIoLogger $logger,
+        string | false $plugin,
+        string $controller,
+        string $action,
+        array $payload
+    ): false | null | array {
         $className = $this->getControllerClass($plugin, $controller);
         $pluginPath = '';
         if ($plugin) {
@@ -59,36 +60,61 @@ class WebSocketControllerFactory
         $fullControllerName = $pluginPath . $controller;
         if ($className === null) {
             $logger->error(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+
             return false;
         }
 
         $reflection = new ReflectionClass($className);
         if ($reflection->isAbstract()) {
             $logger->error(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
+
             return false;
         }
         if (!empty($this->controllers[$className])) {
             $controllerClass = $this->controllers[$className];
         } else {
-            $controllerClass =  new $className($server, $logger);
+            $controllerClass = new $className($server, $logger);
             $this->controllers[$className] = $controllerClass;
         }
-        if ($reflection->getParentClass() === false || $reflection->getParentClass()->name !== WebSocketController::class) {
-            $logger->error(sprintf('WebSocketController "%s" must extends from "%s".', $controllerClass::class, WebSocketController::class));
+        if (
+            $reflection->getParentClass() === false ||
+            $reflection->getParentClass()->name !== WebSocketController::class
+        ) {
+            $logger->error(sprintf(
+                'WebSocketController "%s" must extends from "%s".',
+                $controllerClass::class,
+                WebSocketController::class
+            ));
+
             return false;
         }
         if (!$reflection->hasMethod($action)) {
-            $logger->error(sprintf('WebSocketController "%s::%s(array $payload)" dos not exist.',$controllerClass::class, $action));
+            $logger->error(sprintf(
+                'WebSocketController "%s::%s(array $payload)" dos not exist.',
+                $controllerClass::class,
+                $action,
+            ));
+
             return false;
         }
         $method = $reflection->getMethod($action);
         if (str_starts_with($action, '_') || !$method->isPublic()) {
-            $logger->error(sprintf('WebSocketController "%s::%s" must to be public and without starts with "_".',$controllerClass::class, $action));
+            $logger->error(sprintf(
+                'WebSocketController "%s::%s" must to be public and without starts with "_".',
+                $controllerClass::class,
+                $action
+            ));
+
             return false;
         }
         $parameters = $method->getParameters();
         if (count($parameters) !== 1 || $parameters[0]->getType()->getName() !== 'array') {
-            $logger->error(sprintf('WebSocketController "%s::%s" must to have only the "array" "$payload" parameter.',$controllerClass::class, $action));
+            $logger->error(sprintf(
+                'WebSocketController "%s::%s" must to have only the "array" "$payload" parameter.',
+                $controllerClass::class,
+                $action
+            ));
+
             return false;
         }
 
@@ -103,11 +129,11 @@ class WebSocketControllerFactory
     /**
      * Determine the controller class name based on current request and controller param
      *
-     * @param string|false $plugin
-     * @param string $controller
+     * @param string|false $plugin The plugin name or false
+     * @param string $controller The controller name that will be called.
      * @return string|null
      */
-    public function getControllerClass(string|false $plugin, string $controller): ?string
+    public function getControllerClass(string | false $plugin, string $controller): ?string
     {
         $pluginPath = '';
         $namespace = 'WebSocket\\WebSocketController';

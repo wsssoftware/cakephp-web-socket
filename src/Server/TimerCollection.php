@@ -15,6 +15,9 @@ class TimerCollection
      */
     private array $timers;
 
+    /**
+     * @param array $timers Timers that compound this instance
+     */
     public function __construct(array $timers = [])
     {
         $this->timers = $timers;
@@ -23,7 +26,8 @@ class TimerCollection
     /**
      * Adds a timer.
      *
-     * @param Timer $timer
+     * @param \WebSocket\Server\Timer $timer A timer instance
+     * @return void
      */
     public function addTimer(Timer $timer): void
     {
@@ -33,7 +37,8 @@ class TimerCollection
     /**
      * Executes/runs all timers.
      *
-     * @param \WebSocket\Server\Connection[] $connections
+     * @param \WebSocket\Server\Connection[] $connections connection to put in timers call
+     * @return void
      */
     public function runAll(array $connections): void
     {

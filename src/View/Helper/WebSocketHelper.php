@@ -15,11 +15,11 @@ use WebSocket\Utils;
 
 /**
  * WebSocket helper
+ *
  * @property \Cake\View\Helper\HtmlHelper $Html
  */
 class WebSocketHelper extends Helper
 {
-
     /**
      * @var string[]
      */
@@ -40,7 +40,10 @@ class WebSocketHelper extends Helper
         $configuration = ConfigurationReader::getInstance();
         $proxy = $configuration->getProxy();
         $initializePayload = $this->getEncryptedInitializePayload();
-        if ($proxy !== false && ($configuration->getWebSocketProtocol() === WebSocketProtocol::WSS || $configuration->isForceProxy())) {
+        if (
+            $proxy !== false &&
+            ($configuration->getWebSocketProtocol() === WebSocketProtocol::WSS || $configuration->isForceProxy())
+        ) {
             $script = sprintf(
                 "CakePHPWebSocket.initialize('%s://%s/%s', '%s', %s);",
                 $configuration->getWebSocketProtocol()->getProtocol(),
@@ -79,12 +82,11 @@ class WebSocketHelper extends Helper
         ];
 
         if (!empty($this->getView()->Identity) && $this->getView()->Identity instanceof IdentityHelper) {
-            /** @var IdentityHelper $identity */
+            /** @var \Authentication\View\Helper\IdentityHelper $identity */
             $identity = $this->getView()->Identity;
             $payload['userId'] = $identity->getId();
         }
 
         return urlencode(Security::encrypt(json_encode($payload), Security::getSalt()));
     }
-
 }

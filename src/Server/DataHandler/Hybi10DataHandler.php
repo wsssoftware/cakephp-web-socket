@@ -11,7 +11,6 @@ use RuntimeException;
  */
 class Hybi10DataHandler extends DataHandler
 {
-
     /**
      * @inheritDoc
      */
@@ -30,7 +29,7 @@ class Hybi10DataHandler extends DataHandler
         // set mask and payload length (using 1, 3 or 9 bytes)
         if ($payloadLength > 65535) {
             $payloadLengthBin = str_split(sprintf('%064b', $payloadLength), 8);
-            $frameHead[1] = ($masked === true) ? 255 : 127;
+            $frameHead[1] = $masked === true ? 255 : 127;
             for ($i = 0; $i < 8; $i++) {
                 $frameHead[$i + 2] = bindec($payloadLengthBin[$i]);
             }
@@ -41,11 +40,11 @@ class Hybi10DataHandler extends DataHandler
             }
         } elseif ($payloadLength > 125) {
             $payloadLengthBin = str_split(sprintf('%016b', $payloadLength), 8);
-            $frameHead[1] = ($masked === true) ? 254 : 126;
+            $frameHead[1] = $masked === true ? 254 : 126;
             $frameHead[2] = bindec($payloadLengthBin[0]);
             $frameHead[3] = bindec($payloadLengthBin[1]);
         } else {
-            $frameHead[1] = ($masked === true) ? $payloadLength + 128 : $payloadLength;
+            $frameHead[1] = $masked === true ? $payloadLength + 128 : $payloadLength;
         }
 
         // convert frame-head to string:
@@ -65,7 +64,7 @@ class Hybi10DataHandler extends DataHandler
 
         // append payload to frame:
         for ($i = 0; $i < $payloadLength; $i++) {
-            $frame .= ($masked === true) ? $payload[$i] ^ $mask[$i % 4] : $payload[$i];
+            $frame .= $masked === true ? $payload[$i] ^ $mask[$i % 4] : $payload[$i];
         }
 
         return $frame;

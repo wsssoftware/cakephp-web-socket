@@ -26,21 +26,24 @@ abstract class Timer
     private ConsoleIoLogger $logger;
 
     /**
-     *
+     * @param \WebSocket\Server\ConsoleIoLogger $logger Logger to print outputs
      */
     public function __construct(ConsoleIoLogger $logger)
     {
-       $this->logger = $logger;
-       $this->initialize();
+        $this->logger = $logger;
+        $this->initialize();
     }
 
     /**
      * method called after constructor used to set interval
+     *
+     * @return void
      */
     abstract public function initialize(): void;
 
     /**
-     * @param int $interval
+     * @param int $interval Timer wanted interval
+     * @return void
      */
     public function setInterval(int $interval): void
     {
@@ -48,7 +51,8 @@ abstract class Timer
     }
 
     /**
-     * @param \WebSocket\Server\Connection[] $connections
+     * @param \WebSocket\Server\Connection[] $connections Connections to use in loop
+     * @return void
      */
     abstract public function loop(array $connections): void;
 
@@ -63,7 +67,7 @@ abstract class Timer
     /**
      * Executes the timer if interval has passed.
      *
-     * @param \WebSocket\Server\Connection[] $connections
+     * @param \WebSocket\Server\Connection[] $connections Connections to use in run
      * @return void
      */
     public function run(array $connections): void

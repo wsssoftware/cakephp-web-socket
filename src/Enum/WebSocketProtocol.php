@@ -1,13 +1,8 @@
-<?php
-declare(strict_types = 1);
+<?php // phpcs:disable PSR1.Files.SideEffects.FoundWithSymbols @codingStandardsIgnoreStart
+declare(strict_types=1);
 
 namespace WebSocket\Enum;
 
-/**
- * Class WebSocketProtocol
- *
- * Created by allancarvalho in dezembro 15, 2021
- */
 enum WebSocketProtocol
 {
     case WS;
@@ -18,8 +13,7 @@ enum WebSocketProtocol
      */
     public function getProtocol(): string
     {
-        return match($this)
-        {
+        return match ($this) {
             WebSocketProtocol::WS => 'ws',
             WebSocketProtocol::WSS => 'wss',
         };
@@ -30,8 +24,7 @@ enum WebSocketProtocol
      */
     public function getLabel(): string
     {
-        return match($this)
-        {
+        return match ($this) {
             WebSocketProtocol::WS => __('Protocolo WebSocket {0}', __('não criptografado')),
             WebSocketProtocol::WSS => __('Protocolo WebSocket {0}', __('criptografado')),
         };

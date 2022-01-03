@@ -5,7 +5,6 @@ namespace WebSocket\Test\TestCase\Command;
 
 use Cake\TestSuite\ConsoleIntegrationTestTrait;
 use Cake\TestSuite\TestCase;
-use WebSocket\Command\WebSocketServerCommand;
 
 /**
  * WebSocket\Command\WebSocketServerCommand Test Case
@@ -26,6 +25,7 @@ class WebSocketServerCommandTest extends TestCase
         parent::setUp();
         $this->useCommandRunner();
     }
+
     /**
      * Test buildOptionParser method
      *
