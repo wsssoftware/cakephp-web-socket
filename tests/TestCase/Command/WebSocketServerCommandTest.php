@@ -27,17 +27,6 @@ class WebSocketServerCommandTest extends TestCase
     }
 
     /**
-     * Test buildOptionParser method
-     *
-     * @return void
-     * @uses \WebSocket\Command\WebSocketServerCommand::buildOptionParser()
-     */
-    public function testBuildOptionParser(): void
-    {
-        $this->markTestIncomplete('Not implemented yet.');
-    }
-
-    /**
      * Test execute method
      *
      * @return void
@@ -45,6 +34,10 @@ class WebSocketServerCommandTest extends TestCase
      */
     public function testExecute(): void
     {
+//        $this->exec('web_socket_server');
+//
+//        $output = $this->_out->output();
+
         $this->markTestIncomplete('Not implemented yet.');
     }
 }

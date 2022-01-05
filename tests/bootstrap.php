@@ -21,9 +21,7 @@ $findRoot = function ($root) {
 };
 $root = $findRoot(__FILE__);
 unset($findRoot);
-
 chdir($root);
-
 require_once $root . '/vendor/autoload.php';
 
 /**

@@ -1,14 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="./vendor/autoload.php"
+         bootstrap="./tests/bootstrap.php"
          cacheResultFile="./build/cache/phpunit.result.cache"
          colors="true"
+         processIsolation="false"
          verbose="true">
 
+    <php>
+        <ini name="memory_limit" value="-1"/>
+        <ini name="apc.enable_cli" value="1"/>
+    </php>
+
+    <!-- Add any additional test suites you want to run here -->
     <testsuites>
-        <testsuite name="unit-tests">
-            <directory>./tests</directory>
+        <testsuite name="WebSocket">
+            <directory>./tests/TestCase/</directory>
         </testsuite>
     </testsuites>
 
