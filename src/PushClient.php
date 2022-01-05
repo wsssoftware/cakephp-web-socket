@@ -127,6 +127,10 @@ class PushClient
             $routes = [$routes];
         }
 
+        $request = Router::getRequest();
+        if ($request === null) {
+            throw new FatalErrorException('Request cannot be null');
+        }
         foreach ($routes as $key => $route) {
             foreach ($route as $param => $value) {
                 if (is_int($param)) {
@@ -140,13 +144,13 @@ class PushClient
             $routes[$key] += [
                 'ignorePass' => true,
                 'ignoreQuery' => true,
-                'controller' => Router::getRequest()->getParam('controller'),
-                'action' => Router::getRequest()->getParam('action'),
-                'pass' => Router::getRequest()->getParam('pass'),
-                'prefix' => Router::getRequest()->getParam('prefix', false),
-                'plugin' => Router::getRequest()->getParam('plugin'),
-                '_matchedRoute' => Router::getRequest()->getParam('_matchedRoute'),
-                '?' => Router::getRequest()->getQuery(),
+                'controller' => $request->getParam('controller'),
+                'action' => $request->getParam('action'),
+                'pass' => $request->getParam('pass'),
+                'prefix' => $request->getParam('prefix', false),
+                'plugin' => $request->getParam('plugin'),
+                '_matchedRoute' => $request->getParam('_matchedRoute'),
+                '?' => $request->getQuery(),
             ];
 
             $routes[$key] = Utils::routeToMd5(

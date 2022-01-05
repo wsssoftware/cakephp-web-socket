@@ -26,16 +26,9 @@ class WebSocketHelper extends Helper
     protected $helpers = ['Html'];
 
     /**
-     * Default configuration.
-     *
-     * @var array
+     * @return string|null
      */
-    protected $_defaultConfig = [];
-
-    /**
-     * @return string
-     */
-    public function connect(): string
+    public function connect(): string|null
     {
         $configuration = ConfigurationReader::getInstance();
         $proxy = $configuration->getProxy();
@@ -86,7 +79,8 @@ class WebSocketHelper extends Helper
             $identity = $this->getView()->Identity;
             $payload['userId'] = $identity->getId();
         }
+        $payload = json_encode($payload);
 
-        return urlencode(Security::encrypt(json_encode($payload), Security::getSalt()));
+        return urlencode(Security::encrypt($payload === false ? '' : $payload, Security::getSalt()));
     }
 }

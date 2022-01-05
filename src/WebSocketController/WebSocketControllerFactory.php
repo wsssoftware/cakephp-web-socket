@@ -18,7 +18,7 @@ class WebSocketControllerFactory
     protected static WebSocketControllerFactory $instance;
 
     /**
-     * @var \WebSocket\WebSocketController\WebSocketController[]
+     * @var array<string, \WebSocket\WebSocketController\WebSocketController>
      */
     protected array $controllers = [];
 
@@ -64,6 +64,7 @@ class WebSocketControllerFactory
             return false;
         }
 
+        /** @phpstan-ignore-next-line */
         $reflection = new ReflectionClass($className);
         if ($reflection->isAbstract()) {
             $logger->error(sprintf('WebSocketController "%s" was not found.', $fullControllerName));
@@ -73,6 +74,7 @@ class WebSocketControllerFactory
         if (!empty($this->controllers[$className])) {
             $controllerClass = $this->controllers[$className];
         } else {
+            /** @var \WebSocket\WebSocketController\WebSocketController $controllerClass */
             $controllerClass = new $className($server, $logger);
             $this->controllers[$className] = $controllerClass;
         }
@@ -108,6 +110,7 @@ class WebSocketControllerFactory
             return false;
         }
         $parameters = $method->getParameters();
+        /** @phpstan-ignore-next-line */
         if (count($parameters) !== 1 || $parameters[0]->getType()->getName() !== 'array') {
             $logger->error(sprintf(
                 'WebSocketController "%s::%s" must to have only the "array" "$payload" parameter.',

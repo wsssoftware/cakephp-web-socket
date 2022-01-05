@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use Cake\Error\FatalErrorException;
 use RuntimeException;
 use WebSocket\Server\DataHandler\DataHandler;
 use WebSocket\Server\DataHandler\Hybi10DataHandler;
@@ -75,6 +76,9 @@ class Connection
 
         // set some client-information:
         $socketName = stream_socket_get_name($socket, true);
+        if ($socketName === false) {
+            $socketName = 'Unknown Socket';
+        }
 
         if (str_contains($socketName, ']:')) {
             $tmp = explode(']:', $socketName);
@@ -207,6 +211,7 @@ class Connection
             403 => '403 Forbidden',
             404 => '404 Not Found',
             501 => '501 Not Implemented',
+            default => throw new FatalErrorException('Invalid HTTP status code')
         };
         $httpHeader .= "\r\n";
         try {
@@ -233,8 +238,8 @@ class Connection
     public function close(int $statusCode = 1000): void
     {
         $payload = str_split(sprintf('%016b', $statusCode), 8);
-        $payload[0] = chr(bindec($payload[0]));
-        $payload[1] = chr(bindec($payload[1]));
+        $payload[0] = chr(intval(bindec($payload[0])));
+        $payload[1] = chr(intval(bindec($payload[1])));
         $payload = implode('', $payload);
 
         $payload .= match ($statusCode) {
@@ -245,6 +250,7 @@ class Connection
             1004 => 'frame too large',
             1007 => 'utf8 expected',
             1008 => 'message violates server policy',
+            default => throw new FatalErrorException('Invalid status code on close connection')
         };
 
         if ($this->send($payload, 'close') === false) {
@@ -301,6 +307,9 @@ class Connection
             'Performing handshake'
         );
         $lines = preg_split("/\r\n/", $data);
+        if ($lines === false) {
+            return false;
+        }
 
         // check for valid http-header:
         if (!preg_match('/\AGET (\S+) HTTP\/1.1\z/', $lines[0], $matches)) {
@@ -462,7 +471,12 @@ class Connection
      */
     public function encodeData(array $data): string
     {
-        return json_encode($data);
+        $data = json_encode($data);
+        if ($data === false) {
+            throw new FatalErrorException('False while encoding data');
+        }
+
+        return $data;
     }
 
     /**
@@ -486,7 +500,7 @@ class Connection
     }
 
     /**
-     * @return array|null
+     * @return ?string
      */
     public function getRouteMd5(): ?string
     {

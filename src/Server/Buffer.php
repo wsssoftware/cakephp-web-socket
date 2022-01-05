@@ -56,6 +56,7 @@ class Buffer
             if (feof($resource)) {
                 throw new RuntimeException('Could not read from stream.');
             }
+            /** @phpstan-ignore-next-line */
             $result = fread($resource, $buffSize);
             if ($result === false || feof($resource)) {
                 throw new RuntimeException('Could not read from stream.');

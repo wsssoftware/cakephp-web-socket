@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace WebSocket;
 
+use Cake\Error\FatalErrorException;
 use Cake\Routing\Router;
 use Cake\Utility\Hash;
 
@@ -20,11 +21,15 @@ class Utils
      */
     public static function routeToMd5(array $route, bool $ignorePass = false, bool $ignoreQuery = false): string
     {
+        $request = Router::getRequest();
+        if ($request === null) {
+            throw new FatalErrorException('Request cannot be null');
+        }
         if (empty($route['controller'])) {
-            $route['controller'] = Router::getRequest()->getParam('controller');
+            $route['controller'] = $request->getParam('controller');
         }
         if (empty($route['action'])) {
-            $route['action'] = Router::getRequest()->getParam('action');
+            $route['action'] = $request->getParam('action');
         }
         if (empty($route['prefix'])) {
             $route['prefix'] = false;
@@ -49,9 +54,9 @@ class Utils
             Hash::get($route, 'plugin', ''),
             Hash::get($route, 'prefix', ''),
         ];
-        $md5Items[] = md5(json_encode($base));
-        $md5Items[] = $ignorePass ? 'none' : md5(json_encode($route['pass']));
-        $md5Items[] = $ignoreQuery ? 'none' : md5(json_encode($route['?']));
+        $md5Items[] = md5(strval(json_encode($base)));
+        $md5Items[] = $ignorePass ? 'none' : md5(strval(json_encode($route['pass'])));
+        $md5Items[] = $ignoreQuery ? 'none' : md5(strval(json_encode($route['?'])));
 
         return implode('.', $md5Items);
     }

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use Cake\I18n\Number;
+
 /**
  * Class Timer
  *
@@ -48,6 +50,18 @@ abstract class Timer
     public function setInterval(int $interval): void
     {
         $this->interval = $interval;
+        $resultLabel = sprintf(
+            'REGISTERING TIMER "%s" with interval %sms',
+            $this::class,
+            Number::format($interval)
+        );
+        $size = 98 - strlen($resultLabel);
+        $beforeSpace = (int)ceil($size / 2);
+        $afterSpace = (int)floor($size / 2);
+        $this->logger->info(
+            '║' . str_repeat(' ', $beforeSpace) .
+            $resultLabel . str_repeat(' ', $afterSpace) . '║'
+        );
     }
 
     /**

@@ -27,9 +27,9 @@ class Server
     public ConfigurationReader $configuration;
 
     /**
-     * @var resource $icpSocket
+     * @var \Socket|false $icpSocket
      */
-    private $icpSocket;
+    private \Socket|false $icpSocket;
 
     /**
      *  Holds all connected sockets
@@ -148,18 +148,6 @@ class Server
                         sprintf('Timer "%s" does not have a interval defined.', $timer::class)
                     );
                 }
-                $resultLabel = sprintf(
-                    'REGISTERING TIMER "%s" with interval %sms',
-                    $timer::class,
-                    Number::format($interval)
-                );
-                $size = 98 - strlen($resultLabel);
-                $beforeSpace = (int)ceil($size / 2);
-                $afterSpace = (int)floor($size / 2);
-                $this->logger->info(
-                    '║' . str_repeat(' ', $beforeSpace) .
-                    $resultLabel . str_repeat(' ', $afterSpace) . '║'
-                );
 
                 $this->timers->addTimer($timer);
             }
@@ -234,6 +222,9 @@ class Server
         $this->afterCreateSummary();
 
         $this->configureTimers();
+        $write = null;
+        $except = null;
+        /** @phpstan-ignore-next-line */
         while (true) {
             $this->timers->runAll($this->getConnections());
 
@@ -400,16 +391,17 @@ class Server
         $protocol = 'tcp://';
         $url = $protocol . $host . ':' . $port;
         $this->context = stream_context_create();
-        $this->masterConnection = stream_socket_server(
+        $socket = stream_socket_server(
             $url,
             $errno,
             $err,
             STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
             $this->context
         );
-        if ($this->masterConnection === false) {
+        if ($socket === false) {
             throw new RuntimeException('Error creating socket: ' . $err);
         }
+        $this->masterConnection = $socket;
 
         $this->sockets[] = $this->masterConnection;
     }
@@ -444,6 +436,9 @@ class Server
      */
     private function handleIPC(): void
     {
+        if ($this->icpSocket === false) {
+            return;
+        }
         $ipcSocketPath = self::IPC_SOCKET_PATH;
         $buffer = '';
         $bytesReceived = socket_recvfrom($this->icpSocket, $buffer, 65536, 0, $ipcSocketPath);

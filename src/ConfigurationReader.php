@@ -88,6 +88,7 @@ class ConfigurationReader
         $defaultWebSocketProtocol = Hash::get($_SERVER, 'REQUEST_SCHEME', '') === 'https' ?
             WebSocketProtocol::WSS : WebSocketProtocol::WS;
 
+        /** @var array $configuration */
         $configuration = Configure::read('WebSocket', []);
         $this->webSocketProtocol = Hash::get($configuration, 'webSocketProtocol', $defaultWebSocketProtocol);
         $this->proxy = Hash::get($configuration, 'proxy', false);
@@ -103,10 +104,12 @@ class ConfigurationReader
         $this->allowedOrigins = [];
         foreach ($allowedOrigins as $domain) {
             $domain = str_replace(['https://', 'http://', 'www.'], '', $domain);
+            /** @phpstan-ignore-next-line */
             $domain = str_contains($domain, '/') ? substr($domain, 0, strpos($domain, '/')) : $domain;
             if (empty($domain)) {
                 continue;
             }
+            /** @var string $domain */
             $this->allowedOrigins[$domain] = true;
         }
 
@@ -126,9 +129,9 @@ class ConfigurationReader
     }
 
     /**
-     * @return static
+     * @return self
      */
-    public static function getInstance(): self
+    public static function getInstance(): ConfigurationReader
     {
         if (empty(self::$instance)) {
             self::$instance = new ConfigurationReader();

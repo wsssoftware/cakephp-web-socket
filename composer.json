@@ -19,10 +19,13 @@
     "require": {
         "php": ">=8.1",
         "ext-sockets": "*",
+        "cakephp/authentication": "^2.0",
+        "cakephp/authorization": "^2.0",
         "cakephp/cakephp": "^4.3"
     },
     "require-dev": {
         "cakephp/cakephp-codesniffer": "^4.5",
+        "jetbrains/phpstorm-attributes": "^1.0",
         "ramsey/devtools": "^1.7"
     },
     "minimum-stability": "dev",

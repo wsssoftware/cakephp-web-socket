@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace WebSocket\Server\DataHandler;
 
+use Cake\Error\FatalErrorException;
 use RuntimeException;
 
 /**
@@ -24,6 +25,7 @@ class Hybi10DataHandler extends DataHandler
             'close' => 136,
             'ping' => 137,
             'pong' => 138,
+            default => throw new FatalErrorException('Invalid encode type')
         };
 
         // set mask and payload length (using 1, 3 or 9 bytes)
@@ -49,7 +51,7 @@ class Hybi10DataHandler extends DataHandler
 
         // convert frame-head to string:
         foreach (array_keys($frameHead) as $i) {
-            $frameHead[$i] = chr($frameHead[$i]);
+            $frameHead[$i] = chr(intval($frameHead[$i]));
         }
         if ($masked === true) {
             // generate a random mask:

@@ -139,9 +139,9 @@ class WebSocketApplication
             'New push received and was sent to controller "%s" action "%s" with %s filter(s) to %s of %s connections.',
             $ipcPayload->getController(),
             $ipcPayload->getAction(),
-            Number::format(count($ipcPayload->getFilters())),
+            Number::format(floatval(count($ipcPayload->getFilters()))),
             Number::format($sent),
-            Number::format(count($connections))
+            Number::format(floatval(count($connections)))
         ));
     }
 
@@ -159,6 +159,8 @@ class WebSocketApplication
             $this->getLogger()->wrapConnection($connection)
                 ->warning('Wrong/missing identify payload intent. Performing disconnect...');
             $connection->close(1008);
+
+            return;
         }
         $payload = json_decode($payload, true);
         if (

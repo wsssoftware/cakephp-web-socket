@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace WebSocket\Server;
 
+use Cake\Error\FatalErrorException;
 use JetBrains\PhpStorm\Pure;
 
 /**
@@ -57,12 +58,17 @@ class IPCPayload
      */
     public function asJson(): string
     {
-        return json_encode([
+        $payload = json_encode([
             'controller' => $this->controller,
             'action' => $this->action,
             'payload' => $this->payload,
             'filters' => $this->filters,
         ]);
+        if ($payload === false) {
+            throw new FatalErrorException('Error while encoding payload');
+        }
+
+        return $payload;
     }
 
     /**
@@ -117,6 +123,10 @@ class IPCPayload
     #[Pure]
     public function isConnectionInsideFilters(Connection $connection): bool
     {
+        $routeMd5 = $connection->getRouteMd5();
+        if ($routeMd5 === null) {
+            return false;
+        }
         if (!empty($this->filters['sessionIds'])) {
             $isInSessionList = false;
             foreach ($this->filters['sessionIds'] as $sessionId) {
@@ -145,7 +155,7 @@ class IPCPayload
 
         if (!empty($this->filters['routesMd5'])) {
             $isInRouteList = false;
-            $userRoute = explode('.', $connection->getRouteMd5());
+            $userRoute = explode('.', $routeMd5);
             foreach ($this->filters['routesMd5'] as $routeMd5) {
                 $routeMd5 = explode('.', $routeMd5);
                 if (

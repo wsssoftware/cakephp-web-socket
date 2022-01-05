@@ -20,6 +20,7 @@ class WebSocketServerCommand extends Command
      * @param \Cake\Console\Arguments $args The command arguments.
      * @param \Cake\Console\ConsoleIo $io The console io
      * @return null|void|int The exit code or null for success
+     * @throws \ReflectionException
      */
     public function execute(Arguments $args, ConsoleIo $io)
     {

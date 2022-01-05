@@ -97,7 +97,7 @@ class ConsoleIoLogger extends AbstractLogger
             $message = sprintf(
                 '%s [%s] %s',
                 FrozenTime::now()->format('Y-m-d H:i:s'),
-                strtoupper($level),
+                strtoupper(strval($level)),
                 $message
             );
         }
@@ -107,7 +107,7 @@ class ConsoleIoLogger extends AbstractLogger
             'error' => $this->io->error($message),
             'notice', 'info' => $this->io->info($message),
             'debug' => $this->io->out($message),
-            default => throw new RuntimeException(sprintf('"%s" is not in valid log level list', $level))
+            default => throw new RuntimeException(sprintf('"%s" is not in valid log level list', strval($level)))
         };
     }
 }
