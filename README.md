@@ -4,6 +4,8 @@
     <strong>WebSocket plugin for CakePHP</strong>
 </p>
 
+[![codecov](https://codecov.io/gh/wsssoftware/cakephp-web-socket/branch/main/graph/badge.svg?token=R2QQS452JM)](https://codecov.io/gh/wsssoftware/cakephp-web-socket)
+
 <!--
 TODO: Make sure the following URLs are correct and working for your project.
       Then, remove these comments to display the badges, giving users a quick
