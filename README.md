@@ -8,7 +8,10 @@
 [![codecov](https://codecov.io/gh/wsssoftware/cakephp-web-socket/branch/main/graph/badge.svg?token=R2QQS452JM)](https://codecov.io/gh/wsssoftware/cakephp-web-socket)
 ![GitHub](https://img.shields.io/github/license/wsssoftware/cakephp-web-socket)
 ![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/wsssoftware/cakephp-web-socket)
+[![Packagist Version](https://img.shields.io/packagist/v/wsssoftware/cakephp-web-socket)](https://packagist.org/packages/wsssoftware/cakephp-web-socket)
 ![Packagist Downloads](https://img.shields.io/packagist/dt/wsssoftware/cakephp-web-socket)
+![Linux](https://svgshare.com/i/Zhy.svg)
+![macOS](https://svgshare.com/i/ZjP.svg)
 
 <!--
 TODO: Make sure the following URLs are correct and working for your project.
