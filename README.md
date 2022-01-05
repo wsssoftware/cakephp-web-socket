@@ -4,7 +4,11 @@
     <strong>WebSocket plugin for CakePHP</strong>
 </p>
 
+[![build](https://github.com/wsssoftware/cakephp-web-socket/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/wsssoftware/cakephp-web-socket/actions/workflows/continuous-integration.yml)
 [![codecov](https://codecov.io/gh/wsssoftware/cakephp-web-socket/branch/main/graph/badge.svg?token=R2QQS452JM)](https://codecov.io/gh/wsssoftware/cakephp-web-socket)
+![GitHub](https://img.shields.io/github/license/wsssoftware/cakephp-web-socket)
+![Packagist PHP Version Support](https://img.shields.io/packagist/php-v/wsssoftware/cakephp-web-socket)
+![Packagist Downloads](https://img.shields.io/packagist/dt/wsssoftware/cakephp-web-socket)
 
 <!--
 TODO: Make sure the following URLs are correct and working for your project.
