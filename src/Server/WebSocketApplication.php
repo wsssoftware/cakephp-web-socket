@@ -159,6 +159,8 @@ class WebSocketApplication
             $this->getLogger()->wrapConnection($connection)
                 ->warning('Wrong/missing identify payload intent. Performing disconnect...');
             $connection->close(1008);
+
+            return;
         }
         $payload = json_decode($payload, true);
         if (
