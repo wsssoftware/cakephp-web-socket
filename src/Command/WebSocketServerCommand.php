@@ -25,6 +25,7 @@ class WebSocketServerCommand extends Command
     public function execute(Arguments $args, ConsoleIo $io)
     {
         $server = new Server($io, ConfigurationReader::getInstance());
+        //test
 
         $server->run();
     }
