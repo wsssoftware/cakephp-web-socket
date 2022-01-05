@@ -66,7 +66,9 @@ class WebSocketHelper extends Helper
     {
         $request = $this->getView()->getRequest();
         $routeMd5 = Utils::routeToMd5(Router::parseRequest($request));
-
+        if (!$request->getSession()->started()) {
+            $request->getSession()->start();
+        }
         $payload = [
             'sessionId' => $request->getSession()->id(),
             'userId' => null,

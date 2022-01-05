@@ -159,13 +159,11 @@ class WebSocketApplication
             $this->getLogger()->wrapConnection($connection)
                 ->warning('Wrong/missing identify payload intent. Performing disconnect...');
             $connection->close(1008);
-
-            return;
         }
         $payload = json_decode($payload, true);
         if (
             empty($payload['sessionId']) ||
-            empty($payload['userId']) ||
+            (empty($payload['userId']) && $payload['userId'] !== null) ||
             empty($payload['routeMd5']) ||
             empty($payload['expires'])
         ) {
@@ -187,7 +185,7 @@ class WebSocketApplication
             ->info(sprintf(
                 'Identity setted! SessionId: %s | UserId: %s | RouteMd5: %s',
                 $connection->getSessionId(),
-                $connection->getUserId(),
+                !empty($connection->getUserId()) ? $connection->getUserId() : 'not-authenticated',
                 $connection->getRouteMd5()
             ));
     }
