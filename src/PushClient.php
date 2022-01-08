@@ -128,7 +128,7 @@ class PushClient
         }
 
         $request = Router::getRequest();
-        if ($request === null) {
+        if ($request === null && PHP_SAPI != 'cli') {
             throw new FatalErrorException('Request cannot be null');
         }
         foreach ($routes as $key => $route) {
@@ -144,14 +144,19 @@ class PushClient
             $routes[$key] += [
                 'ignorePass' => true,
                 'ignoreQuery' => true,
-                'controller' => $request->getParam('controller'),
-                'action' => $request->getParam('action'),
-                'pass' => $request->getParam('pass'),
-                'prefix' => $request->getParam('prefix', false),
-                'plugin' => $request->getParam('plugin'),
-                '_matchedRoute' => $request->getParam('_matchedRoute'),
-                '?' => $request->getQuery(),
             ];
+
+            if ($request !== null) {
+                $routes[$key] += [
+                    'controller' => $request->getParam('controller'),
+                    'action' => $request->getParam('action'),
+                    'pass' => $request->getParam('pass'),
+                    'prefix' => $request->getParam('prefix', false),
+                    'plugin' => $request->getParam('plugin'),
+                    '_matchedRoute' => $request->getParam('_matchedRoute'),
+                    '?' => $request->getQuery(),
+                ];
+            }
 
             $routes[$key] = Utils::routeToMd5(
                 $routes[$key],
