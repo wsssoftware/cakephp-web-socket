@@ -25,8 +25,8 @@ enum WebSocketProtocol
     public function getLabel(): string
     {
         return match ($this) {
-            WebSocketProtocol::WS => __('Protocolo WebSocket {0}', __('não criptografado')),
-            WebSocketProtocol::WSS => __('Protocolo WebSocket {0}', __('criptografado')),
+            WebSocketProtocol::WS => __('WebSocket protocol {0}', __('non encrypted')),
+            WebSocketProtocol::WSS => __('WebSocket protocol {0}', __('encrypted')),
         };
     }
 }

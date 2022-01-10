@@ -129,6 +129,14 @@ class ConfigurationReader
     }
 
     /**
+     * @return void
+     */
+    public static function reloadInstance(): void
+    {
+        self::$instance = new ConfigurationReader();
+    }
+
+    /**
      * @return self
      */
     public static function getInstance(): ConfigurationReader

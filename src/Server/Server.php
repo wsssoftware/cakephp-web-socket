@@ -210,11 +210,13 @@ class Server
      * Main server loop.
      * Listens for connections, handles connect/disconnect, e.g.
      *
+     * @param bool $isTest If this run is test or not
      * @return void
      * @throws \ReflectionException
      */
-    public function run(): void
+    public function run(bool $isTest = false): void
     {
+        $mustContinue = true;
         ob_implicit_flush();
         $this->createSocket($this->configuration->getHost(), $this->configuration->getPort());
         $this->openIPCSocket();
@@ -224,8 +226,7 @@ class Server
         $this->configureTimers();
         $write = null;
         $except = null;
-        /** @phpstan-ignore-next-line */
-        while (true) {
+        while ($mustContinue) {
             $this->timers->runAll($this->getConnections());
 
             $changed_sockets = $this->sockets;
@@ -280,6 +281,10 @@ class Server
             }
 
             $this->handleIPC();
+            if ($isTest) {
+                $this->logger->debug('command unit test finished');
+                $mustContinue = false;
+            }
         }
     }
 

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace WebSocket\Test\TestCase\Command;
 
+use Cake\Command\Command;
+use Cake\Routing\Router;
 use Cake\TestSuite\ConsoleIntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 
@@ -24,6 +26,7 @@ class WebSocketServerCommandTest extends TestCase
     {
         parent::setUp();
         $this->useCommandRunner();
+        Router::reload();
     }
 
     /**
@@ -34,10 +37,9 @@ class WebSocketServerCommandTest extends TestCase
      */
     public function testExecute(): void
     {
-//        $this->exec('web_socket_server');
-//
-//        $output = $this->_out->output();
-
-        $this->markTestIncomplete('Not implemented yet.');
+        $this->exec('web_socket_server --test');
+        $output = $this->_out->output();
+        $this->assertExitCode(Command::CODE_SUCCESS);
+        $this->assertStringContainsString('[DEBUG] command unit test finished', $output);
     }
 }
