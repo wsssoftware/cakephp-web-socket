@@ -37,9 +37,9 @@ class PushClient
      * @param string $action Action name
      * @param array $payload Payload data
      * @param array $filters Filters to separate connections that will receive the message
-     * @return bool
+     * @return \WebSocket\Server\IPCPayload
      */
-    public function send(string $controller, string $action, array $payload, array $filters = []): bool
+    public function send(string $controller, string $action, array $payload, array $filters = []): IPCPayload
     {
         $filters += [
             'routes' => [],
@@ -61,29 +61,12 @@ class PushClient
     }
 
     /**
-     * Check if socket is open
-     *
-     * @return bool
-     */
-    public function isSocketOpen(): bool
-    {
-        $socket = socket_create(AF_UNIX, SOCK_DGRAM, 0);
-        if ($socket === false) {
-            throw new \RuntimeException('Could not open ipc socket.');
-        }
-
-        // @codingStandardsIgnoreStart
-        return @socket_connect($socket, Server::IPC_SOCKET_PATH);
-        // @codingStandardsIgnoreEnd
-    }
-
-    /**
      * Pushes payload into the websocket server using a unix domain socket.
      *
      * @param \WebSocket\Server\IPCPayload $payload Payload data
-     * @return bool
+     * @return \WebSocket\Server\IPCPayload
      */
-    private function sendPayloadToServer(IPCPayload $payload): bool
+    private function sendPayloadToServer(IPCPayload $payload): IPCPayload
     {
         $dataToSend = $payload->asJson();
         $dataLength = strlen($dataToSend);
@@ -106,7 +89,7 @@ class PushClient
         }
         socket_close($socket);
 
-        return true;
+        return $payload;
     }
 
     /**

@@ -6,7 +6,6 @@ namespace WebSocket;
 use Cake\Console\CommandCollection;
 use Cake\Core\BasePlugin;
 use Cake\Core\PluginApplicationInterface;
-use Cake\Http\MiddlewareQueue;
 use Cake\Routing\RouteBuilder;
 
 /**
@@ -48,19 +47,6 @@ class Plugin extends BasePlugin
             }
         );
         parent::routes($routes);
-    }
-
-    /**
-     * Add middleware for the plugin.
-     *
-     * @param \Cake\Http\MiddlewareQueue $middlewareQueue CakePHP MiddlewareQueue
-     * @return \Cake\Http\MiddlewareQueue
-     */
-    public function middleware(MiddlewareQueue $middlewareQueue): MiddlewareQueue
-    {
-        // Add your middlewares here
-
-        return $middlewareQueue;
     }
 
     /**
