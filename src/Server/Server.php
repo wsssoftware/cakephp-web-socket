@@ -218,8 +218,10 @@ class Server
     {
         $mustContinue = true;
         ob_implicit_flush();
-        $this->createSocket($this->configuration->getHost(), $this->configuration->getPort());
-        $this->openIPCSocket();
+        if (!$isTest) {
+            $this->createSocket($this->configuration->getHost(), $this->configuration->getPort());
+            $this->openIPCSocket();
+        }
         $this->timers = new TimerCollection();
         $this->afterCreateSummary();
 
@@ -228,6 +230,11 @@ class Server
         $except = null;
         while ($mustContinue) {
             $this->timers->runAll($this->getConnections());
+            if ($isTest) {
+                $this->logger->debug('command with test option finished');
+                $mustContinue = false;
+                continue;
+            }
 
             $changed_sockets = $this->sockets;
             // @codingStandardsIgnoreStart
@@ -281,10 +288,6 @@ class Server
             }
 
             $this->handleIPC();
-            if ($isTest) {
-                $this->logger->debug('command unit test finished');
-                $mustContinue = false;
-            }
         }
     }
 
@@ -396,13 +399,15 @@ class Server
         $protocol = 'tcp://';
         $url = $protocol . $host . ':' . $port;
         $this->context = stream_context_create();
-        $socket = stream_socket_server(
+        // @codingStandardsIgnoreStart
+        $socket = @stream_socket_server(
             $url,
             $errno,
             $err,
             STREAM_SERVER_BIND | STREAM_SERVER_LISTEN,
             $this->context
         );
+        // @codingStandardsIgnoreEnd
         if ($socket === false) {
             throw new RuntimeException('Error creating socket: ' . $err);
         }

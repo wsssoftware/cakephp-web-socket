@@ -16,8 +16,6 @@ use WebSocket\Server\Server;
  */
 class PushClient
 {
-    private const MAX_PAYLOAD_LENGTH = 65536;
-
     protected static PushClient $instance;
 
     /**
@@ -87,19 +85,23 @@ class PushClient
     {
         $dataToSend = $payload->asJson();
         $dataLength = strlen($dataToSend);
-        if ($dataLength > self::MAX_PAYLOAD_LENGTH) {
-            throw new RuntimeException(
-                sprintf(
-                    'IPC payload exceeds max length of %d bytes. (%d bytes given.)',
-                    self::MAX_PAYLOAD_LENGTH,
-                    $dataLength
-                )
-            );
-        }
         $socket = socket_create(AF_UNIX, SOCK_DGRAM, 0);
         if ($socket === false) {
             throw new RuntimeException('Could not open ipc socket.');
         }
+        /** @var int $maxPayloadLength */
+        $maxPayloadLength = socket_get_option($socket, \SOL_SOCKET, \SO_SNDBUF);
+        if ($dataLength > $maxPayloadLength) {
+            throw new RuntimeException(
+                sprintf(
+                    'IPC payload (%d bytes) exceeds max length of %d bytes. (%d bytes given.)',
+                    $dataLength,
+                    $maxPayloadLength,
+                    $dataLength
+                )
+            );
+        }
+
         $bytesSend = socket_sendto($socket, $dataToSend, $dataLength, MSG_EOF, Server::IPC_SOCKET_PATH);
         if ($bytesSend <= 0) {
             throw new RuntimeException('Could not sent data to IPC socket.');

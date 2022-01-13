@@ -14,8 +14,8 @@
     <!-- Add any additional test suites you want to run here -->
     <testsuites>
         <testsuite name="WebSocket">
+            <file>./tests/TestCase/Command/WebSocketServerCommandTest.php</file>
             <directory>./tests/TestCase/</directory>
-            <file>./tests/FinalTest.php</file>
         </testsuite>
     </testsuites>
 

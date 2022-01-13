@@ -45,10 +45,8 @@ $command = [
     'web_socket_server',
     ];
 $console->info('Trying to execute WebSocket server');
-
 $process = new Process($command, $root . DS . 'tests' . DS . 'test_app' . DS . 'bin' . DS);
 $process->start();
-
 $console->info('WebSocket server started on pid: ' . $process->getPid());
 
 sleep(2);

@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace WebSocket\Test\TestCase\Command;
 
+use Cake\Command\Command;
 use Cake\Routing\Router;
 use Cake\TestSuite\ConsoleIntegrationTestTrait;
 use Cake\TestSuite\TestCase;
+use RuntimeException;
 
 /**
  * WebSocket\Command\WebSocketServerCommand Test Case
@@ -34,13 +36,22 @@ class WebSocketServerCommandTest extends TestCase
      * @return void
      * @uses \WebSocket\Command\WebSocketServerCommand::execute()
      */
-    public function testExecute(): void
+    public function testExecuteWithTestOption(): void
     {
-//        $this->exec('web_socket_server --test');
-//        $output = $this->_out->output();
-//        $this->assertExitCode(Command::CODE_SUCCESS);
-//        $this->assertStringContainsString('[DEBUG] command unit test finished', $output);
+        $this->exec('web_socket_server --test');
+        $this->assertOutputContains('command with test option finished');
+        $this->assertExitCode(Command::CODE_SUCCESS);
+    }
 
-        self::markTestSkipped();
+    /**
+     * Test execute method
+     *
+     * @return void
+     * @uses \WebSocket\Command\WebSocketServerCommand::execute()
+     */
+    public function testExecuteTwoInstances(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->exec('web_socket_server');
     }
 }

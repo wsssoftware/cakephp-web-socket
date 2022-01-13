@@ -32,6 +32,7 @@ class WebSocketHelperTest extends TestCase
     {
         parent::setUp();
         $view = new View();
+        $view->loadHelper('Authentication.Identity');
         Router::reload();
 
         $this->loadRoutes();

@@ -40,5 +40,7 @@ class WebSocketServerCommand extends Command
         //test
 
         $server->run($isTest);
+
+        return Command::CODE_SUCCESS;
     }
 }
