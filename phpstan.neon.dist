@@ -1,7 +1,11 @@
 parameters:
+    bootstrapFiles:
+        - tests/bootstrap.php
     tmpDir: ./build/cache/phpstan
     checkMissingIterableValueType: false
     level: 8
     paths:
         - ./src
         - ./tests
+    excludePaths:
+         - tests/test_app/config/bootstrap.php

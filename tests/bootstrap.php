@@ -9,11 +9,9 @@ declare(strict_types=1);
  * installed as a dependency of an application.
  */
 
-use Cake\Cache\Cache;
-use Cake\Cache\Engine\FileEngine;
-use Cake\Core\Configure;
+use Cake\Console\ConsoleIo;
 use Cake\Core\Plugin as CorePlugin;
-use Cake\Datasource\ConnectionManager;
+use Symfony\Component\Process\Process;
 
 $findRoot = function ($root) {
     do {
@@ -30,45 +28,27 @@ $root = $findRoot(__FILE__);
 unset($findRoot);
 chdir($root);
 
-require_once 'vendor/cakephp/cakephp/src/basics.php';
 require_once 'vendor/autoload.php';
-
-define('ROOT', $root . DS . 'tests' . DS . 'test_app' . DS);
-define('APP', ROOT . 'src' . DS);
-define('TMP', sys_get_temp_dir() . DS);
-define('CONFIG', ROOT . DS . 'config' . DS);
-define('CACHE', TMP . 'cache' . DS);
-define('CORE_PATH', $root . DS . 'vendor' . DS . 'cakephp' . DS . 'cakephp' . DS);
-
-Configure::write('debug', true);
-Configure::write('App', [
-    'base' => '',
-    'namespace' => 'TestApp',
-    'encoding' => 'UTF-8',
-    'paths' => [
-        'plugins' => [ROOT . 'Plugin' . DS],
-    ],
-]);
-Configure::write('Cache', [
-    '_cake_core_' => [
-        'className' => FileEngine::class,
-        'prefix' => 'myapp_cake_core_',
-        'path' => CACHE . 'persistent' . DS,
-        'serialize' => true,
-        'duration' => '+1 years',
-        'url' => env('CACHE_CAKECORE_URL', null),
-    ],
-]);
-$cacheConfig = Configure::consume('Cache');
-if (is_array($cacheConfig)) {
-    Cache::setConfig($cacheConfig);
-}
-\Cake\Utility\Security::setSalt('DJSANJdsaHj13888!*u7e891728e8u1OSDJAO');
+require_once 'tests/test_app/config/bootstrap.php';
 
 if (!getenv('DB_URL')) {
     putenv('DB_URL=sqlite:///:memory:');
 }
 
-ConnectionManager::setConfig('test', ['url' => getenv('DB_URL')]);
-
 CorePlugin::getCollection()->add(new \WebSocket\Plugin());
+
+$console = new ConsoleIo();
+
+$command = [
+    PHP_BINARY,
+     'cake.php',
+    'web_socket_server',
+    ];
+$console->info('Trying to execute WebSocket server');
+
+$process = new Process($command, $root . DS . 'tests' . DS . 'test_app' . DS . 'bin' . DS);
+$process->start();
+
+$console->info('WebSocket server started on pid: ' . $process->getPid());
+
+sleep(2);

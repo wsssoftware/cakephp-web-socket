@@ -33,6 +33,23 @@ class PushClient
     }
 
     /**
+     * Check if socket is open
+     *
+     * @return bool
+     */
+    public function isSocketOpen(): bool
+    {
+        $socket = socket_create(AF_UNIX, SOCK_DGRAM, 0);
+        if ($socket === false) {
+            throw new \RuntimeException('Could not open ipc socket.');
+        }
+
+        // @codingStandardsIgnoreStart
+        return @socket_connect($socket, Server::IPC_SOCKET_PATH);
+        // @codingStandardsIgnoreEnd
+    }
+
+    /**
      * @param string $controller Controller name
      * @param string $action Action name
      * @param array $payload Payload data
