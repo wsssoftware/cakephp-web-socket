@@ -96,7 +96,14 @@ class PushClientTest extends TestCase
      */
     public function testSendWithLargePayload(): void
     {
-        $payload = ['huge_payload' => str_repeat('a', 80000)];
+        $socket = socket_create(AF_UNIX, SOCK_DGRAM, 0);
+        if ($socket === false) {
+            throw new RuntimeException('Could not open ipc socket.');
+        }
+        /** @var int $maxPayloadLength */
+        $maxPayloadLength = socket_get_option($socket, \SOL_SOCKET, \SO_SNDBUF);
+
+        $payload = ['huge_payload' => str_repeat('a', $maxPayloadLength * 2)];
         $this->expectException(RuntimeException::class);
         PushClient::getInstance()->send('Pages', 'index', $payload);
     }
