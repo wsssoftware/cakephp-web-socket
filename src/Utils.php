@@ -22,14 +22,14 @@ class Utils
     public static function routeToMd5(array $route, bool $ignorePass = false, bool $ignoreQuery = false): string
     {
         $request = Router::getRequest();
-        if ($request === null) {
+        if ($request === null && PHP_SAPI !== 'cli') {
             throw new FatalErrorException('Request cannot be null');
         }
         if (empty($route['controller'])) {
-            $route['controller'] = $request->getParam('controller');
+            $route['controller'] = !empty($request) ? $request->getParam('controller') : 'empty';
         }
         if (empty($route['action'])) {
-            $route['action'] = $request->getParam('action');
+            $route['action'] = !empty($request) ? $request->getParam('action') : 'empty';
         }
         if (empty($route['prefix'])) {
             $route['prefix'] = false;
