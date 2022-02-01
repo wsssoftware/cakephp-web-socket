@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace WebSocket\Test\TestCase;
 
-use Cake\Error\FatalErrorException;
 use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
 use Cake\TestSuite\TestCase;
@@ -17,16 +16,6 @@ class UtilsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-    }
-
-    /**
-     * @return void
-     */
-    public function testRequestIsFalse(): void
-    {
-        Router::resetRoutes();
-        $this->expectException(FatalErrorException::class);
-        Utils::routeToMd5([]);
     }
 
     /**
