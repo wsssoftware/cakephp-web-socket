@@ -24,7 +24,7 @@
         "symfony/process": "^5.3 || ^6.0"
     },
     "require-dev": {
-        "cakephp/cakephp-codesniffer": "^4.5",
+        "cakephp/cakephp-codesniffer": "^5.0",
         "jetbrains/phpstorm-attributes": "^1.0",
         "ramsey/devtools": "^1.7"
     },
